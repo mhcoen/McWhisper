@@ -43,18 +43,26 @@ struct PasteManagerTests {
     func pasteWritesToPasteboard() {
         let manager = PasteManager()
         manager.captureTarget()
-        manager.paste("hello world")
+        _ = manager.paste("hello world")
         let result = NSPasteboard.general.string(forType: .string)
         #expect(result == "hello world")
     }
 
     @MainActor
-    @Test("paste works without captured target")
-    func pasteWithoutTarget() {
+    @Test("paste returns false without captured target")
+    func pasteReturnsFalseWithoutTarget() {
         let manager = PasteManager()
-        manager.paste("no target")
+        let result = manager.paste("no target")
+        #expect(result == false)
+    }
+
+    @MainActor
+    @Test("paste copies to clipboard even when returning false")
+    func pasteCopiesOnFailure() {
+        let manager = PasteManager()
+        _ = manager.paste("fallback text")
         let result = NSPasteboard.general.string(forType: .string)
-        #expect(result == "no target")
+        #expect(result == "fallback text")
     }
 
     @MainActor

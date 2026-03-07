@@ -8,12 +8,15 @@ struct RecordingView: View {
 
     var body: some View {
         Group {
-            switch coordinator.state {
-            case .idle:
-                StandbyWaveformView()
-                    .frame(height: 32)
-                    .padding(12)
-            case .recording:
+            if !coordinator.hudMessage.isEmpty {
+                HudView(message: coordinator.hudMessage)
+            } else {
+                switch coordinator.state {
+                case .idle:
+                    StandbyWaveformView()
+                        .frame(height: 32)
+                        .padding(12)
+                case .recording:
                 RecordingStateView(
                     levelSamples: coordinator.levelSamples,
                     partialText: coordinator.partialText
@@ -25,8 +28,9 @@ struct RecordingView: View {
                     processedText: coordinator.processedText,
                     showProcessed: $showProcessed
                 )
-            case .error(let message):
-                ErrorStateView(message: message)
+                case .error(let message):
+                    ErrorStateView(message: message)
+                }
             }
         }
         .frame(width: 280)
@@ -128,6 +132,22 @@ struct TextToggleView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(active ? .primary : .secondary)
+    }
+}
+
+// MARK: - HUD
+
+struct HudView: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "doc.on.clipboard")
+                .foregroundStyle(.secondary)
+            Text(message)
+                .font(.system(.body, design: .rounded))
+        }
+        .padding(12)
     }
 }
 

@@ -23,6 +23,7 @@ final class RecordingCoordinator: ObservableObject {
     @Published private(set) var partialText: String = ""
     @Published private(set) var rawText: String = ""
     @Published private(set) var processedText: String = ""
+    @Published private(set) var hudMessage: String = ""
 
     /// Rolling buffer of recent RMS audio levels for waveform display.
     static let levelBufferSize = 30
@@ -30,6 +31,7 @@ final class RecordingCoordinator: ObservableObject {
 
     private var levelCancellable: AnyCancellable?
     private var recordingStartTime: Date?
+    private var hudDismissTask: Task<Void, Never>?
 
     func start() {
         levelCancellable = audioEngine.$audioLevel
@@ -78,6 +80,8 @@ final class RecordingCoordinator: ObservableObject {
         guard state == .idle else { return }
 
         do {
+            hudDismissTask?.cancel()
+            hudMessage = ""
             pasteManager.captureTarget()
             levelSamples = Array(repeating: 0, count: Self.levelBufferSize)
             rawText = ""
@@ -108,6 +112,23 @@ final class RecordingCoordinator: ObservableObject {
 
         Task {
             await transcribeAndPaste(audioURL: audioURL, duration: duration)
+        }
+    }
+
+    // MARK: - HUD
+
+    static let hudDisplayDuration: TimeInterval = 2.0
+
+    private func showHud(_ message: String) {
+        hudDismissTask?.cancel()
+        hudMessage = message
+        state = .idle
+        partialText = ""
+        hudDismissTask = Task {
+            try? await Task.sleep(for: .seconds(Self.hudDisplayDuration))
+            guard !Task.isCancelled else { return }
+            hudMessage = ""
+            windowController.hide()
         }
     }
 
@@ -144,11 +165,15 @@ final class RecordingCoordinator: ObservableObject {
             )
             historyStore.add(record)
 
-            pasteManager.paste(processed)
+            let pasted = pasteManager.paste(processed)
             pasteManager.clearTarget()
-            windowController.hide()
-            state = .idle
-            partialText = ""
+            if pasted {
+                windowController.hide()
+                state = .idle
+                partialText = ""
+            } else {
+                showHud("Copied to clipboard")
+            }
         } catch {
             state = .error("Transcription failed: \(error.localizedDescription)")
         }

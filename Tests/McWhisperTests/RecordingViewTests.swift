@@ -123,6 +123,12 @@ struct RecordingViewTests {
         _ = view.body
     }
 
+    @Test("HudView builds with message")
+    func hudViewBuilds() {
+        let view = HudView(message: "Copied to clipboard")
+        _ = view.body
+    }
+
     @Test("WaveformView renders correct number of bars from levels array")
     func waveformBarCount() {
         let levels = Array(repeating: Float(0.3), count: 30)

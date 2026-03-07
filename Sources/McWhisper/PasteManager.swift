@@ -17,12 +17,18 @@ final class PasteManager {
     }
 
     /// Re-focuses the captured app, writes text to the system pasteboard, and simulates Cmd+V to paste.
-    func paste(_ text: String) {
-        targetApplication?.activate()
-
+    /// Returns `true` if the keystroke was sent, `false` if paste failed (text is still on the clipboard).
+    @discardableResult
+    func paste(_ text: String) -> Bool {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+
+        guard let app = targetApplication, !app.isTerminated else {
+            return false
+        }
+
+        app.activate()
 
         let source = CGEventSource(stateID: .hidSystemState)
         // keyCode 9 = 'v'
@@ -32,5 +38,6 @@ final class PasteManager {
         keyUp?.flags = .maskCommand
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
+        return true
     }
 }

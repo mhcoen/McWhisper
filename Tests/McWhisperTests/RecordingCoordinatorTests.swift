@@ -80,4 +80,17 @@ struct RecordingCoordinatorTests {
         let coordinator = RecordingCoordinator()
         #expect(coordinator.processedText.isEmpty)
     }
+
+    @MainActor
+    @Test("Initial hudMessage is empty")
+    func initialHudMessage() {
+        let coordinator = RecordingCoordinator()
+        #expect(coordinator.hudMessage.isEmpty)
+    }
+
+    @MainActor
+    @Test("hudDisplayDuration is positive")
+    func hudDisplayDurationPositive() {
+        #expect(RecordingCoordinator.hudDisplayDuration > 0)
+    }
 }
