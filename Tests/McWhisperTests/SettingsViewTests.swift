@@ -63,6 +63,46 @@ struct SettingsViewTests {
         #expect(display == "Space")
     }
 
+    // MARK: - Hotkey Recorder
+
+    @MainActor
+    @Test("HotkeyRecorderView can be constructed")
+    func hotkeyRecorderViewConstructs() {
+        var keyCode = Int(AppSettings.defaultHotkeyKeyCode)
+        var modifiers = Int(AppSettings.defaultHotkeyModifiers)
+        let view = HotkeyRecorderView(
+            keyCode: .init(get: { keyCode }, set: { keyCode = $0 }),
+            modifiers: .init(get: { modifiers }, set: { modifiers = $0 })
+        )
+        let coordinator = view.makeCoordinator()
+        _ = coordinator
+    }
+
+    @MainActor
+    @Test("HotkeyRecorderNSView initial state")
+    func hotkeyRecorderNSViewInitialState() {
+        let nsView = HotkeyRecorderNSView()
+        #expect(nsView.isRecordingHotkey == false)
+        #expect(nsView.acceptsFirstResponder == true)
+        #expect(nsView.displayText == "")
+    }
+
+    @MainActor
+    @Test("HotkeyRecorderNSView intrinsic content size")
+    func hotkeyRecorderNSViewIntrinsicSize() {
+        let nsView = HotkeyRecorderNSView()
+        let size = nsView.intrinsicContentSize
+        #expect(size.width == HotkeyRecorderNSView.viewWidth)
+        #expect(size.height == HotkeyRecorderNSView.viewHeight)
+    }
+
+    @MainActor
+    @Test("HotkeyRecorderNSView view dimensions are positive")
+    func hotkeyRecorderNSViewDimensions() {
+        #expect(HotkeyRecorderNSView.viewWidth > 0)
+        #expect(HotkeyRecorderNSView.viewHeight > 0)
+    }
+
     // MARK: - Models tab
 
     @MainActor

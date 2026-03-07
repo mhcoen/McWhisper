@@ -36,7 +36,6 @@ enum SettingsTab: Hashable {
 struct GeneralSettingsTab: View {
     @AppStorage(AppSettings.Keys.hotkeyKeyCode) private var hotkeyKeyCode: Int = Int(AppSettings.defaultHotkeyKeyCode)
     @AppStorage(AppSettings.Keys.hotkeyModifiers) private var hotkeyModifiers: Int = Int(AppSettings.defaultHotkeyModifiers)
-    @State private var isRecordingHotkey = false
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
@@ -45,15 +44,11 @@ struct GeneralSettingsTab: View {
                 HStack {
                     Text("Hotkey:")
                     Spacer()
-                    Button(action: { isRecordingHotkey.toggle() }) {
-                        Text(isRecordingHotkey ? "Press a key..." : hotkeyDisplayString)
-                            .frame(minWidth: 120)
-                    }
-                    .hotkeyRecorder(
-                        isRecording: $isRecordingHotkey,
+                    HotkeyRecorderView(
                         keyCode: $hotkeyKeyCode,
                         modifiers: $hotkeyModifiers
                     )
+                    .frame(width: HotkeyRecorderNSView.viewWidth, height: HotkeyRecorderNSView.viewHeight)
                 }
             }
 
@@ -66,10 +61,6 @@ struct GeneralSettingsTab: View {
         }
         .formStyle(.grouped)
         .padding()
-    }
-
-    var hotkeyDisplayString: String {
-        HotkeyFormatter.displayString(keyCode: hotkeyKeyCode, modifiers: hotkeyModifiers)
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
@@ -161,60 +152,98 @@ enum HotkeyFormatter {
     }
 }
 
-// MARK: - Hotkey Recorder Modifier
+// MARK: - Hotkey Recorder View
 
-struct HotkeyRecorderModifier: ViewModifier {
-    @Binding var isRecording: Bool
+struct HotkeyRecorderView: NSViewRepresentable {
     @Binding var keyCode: Int
     @Binding var modifiers: Int
 
-    func body(content: Content) -> some View {
-        content
-            .background(
-                HotkeyRecorderEventHandler(
-                    isRecording: $isRecording,
-                    keyCode: $keyCode,
-                    modifiers: $modifiers
-                )
-                .frame(width: 0, height: 0)
-            )
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
     }
-}
-
-extension View {
-    func hotkeyRecorder(isRecording: Binding<Bool>, keyCode: Binding<Int>, modifiers: Binding<Int>) -> some View {
-        modifier(HotkeyRecorderModifier(isRecording: isRecording, keyCode: keyCode, modifiers: modifiers))
-    }
-}
-
-struct HotkeyRecorderEventHandler: NSViewRepresentable {
-    @Binding var isRecording: Bool
-    @Binding var keyCode: Int
-    @Binding var modifiers: Int
 
     func makeNSView(context: Context) -> HotkeyRecorderNSView {
         let view = HotkeyRecorderNSView()
+        view.displayText = HotkeyFormatter.displayString(keyCode: keyCode, modifiers: modifiers)
         view.onKeyEvent = { code, mods in
-            keyCode = code
-            modifiers = mods
-            isRecording = false
+            self.keyCode = code
+            self.modifiers = mods
         }
         return view
     }
 
     func updateNSView(_ nsView: HotkeyRecorderNSView, context: Context) {
-        nsView.isRecordingHotkey = isRecording
-        if isRecording {
-            nsView.window?.makeFirstResponder(nsView)
+        if !nsView.isRecordingHotkey {
+            nsView.displayText = HotkeyFormatter.displayString(keyCode: keyCode, modifiers: modifiers)
         }
+        nsView.needsDisplay = true
     }
+
+    final class Coordinator {}
 }
 
 final class HotkeyRecorderNSView: NSView {
     var isRecordingHotkey = false
+    var displayText = ""
     var onKeyEvent: ((Int, Int) -> Void)?
 
+    static let viewHeight: CGFloat = 24
+    static let viewWidth: CGFloat = 140
+
     override var acceptsFirstResponder: Bool { true }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: Self.viewWidth, height: Self.viewHeight)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 5, yRadius: 5)
+
+        if isRecordingHotkey {
+            NSColor.controlAccentColor.withAlphaComponent(0.15).setFill()
+        } else {
+            NSColor.controlBackgroundColor.setFill()
+        }
+        path.fill()
+
+        if window?.firstResponder == self {
+            NSColor.controlAccentColor.setStroke()
+        } else {
+            NSColor.separatorColor.setStroke()
+        }
+        path.lineWidth = 1
+        path.stroke()
+
+        let text = isRecordingHotkey ? "Press a key…" : displayText
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 12),
+            .foregroundColor: isRecordingHotkey ? NSColor.secondaryLabelColor : NSColor.labelColor
+        ]
+        let attrStr = NSAttributedString(string: text, attributes: attrs)
+        let size = attrStr.size()
+        let point = NSPoint(
+            x: (bounds.width - size.width) / 2,
+            y: (bounds.height - size.height) / 2
+        )
+        attrStr.draw(at: point)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        isRecordingHotkey = true
+        needsDisplay = true
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        needsDisplay = true
+        return true
+    }
+
+    override func resignFirstResponder() -> Bool {
+        isRecordingHotkey = false
+        needsDisplay = true
+        return true
+    }
 
     override func keyDown(with event: NSEvent) {
         guard isRecordingHotkey else {
@@ -222,14 +251,16 @@ final class HotkeyRecorderNSView: NSView {
             return
         }
         if event.keyCode == UInt16(kVK_Escape) {
-            // Cancel recording on Escape
             isRecordingHotkey = false
-            onKeyEvent = nil
+            window?.makeFirstResponder(nil)
             return
         }
         let relevantMask: NSEvent.ModifierFlags = [.shift, .control, .option, .command]
         let mods = Int(event.modifierFlags.intersection(relevantMask).rawValue)
         onKeyEvent?(Int(event.keyCode), mods)
+        isRecordingHotkey = false
+        displayText = HotkeyFormatter.displayString(keyCode: Int(event.keyCode), modifiers: mods)
+        window?.makeFirstResponder(nil)
     }
 }
 
