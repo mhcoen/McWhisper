@@ -145,6 +145,7 @@ final class RecordingCoordinator: ObservableObject {
             historyStore.add(record)
 
             pasteManager.paste(processed)
+            pasteManager.clearTarget()
             windowController.hide()
             state = .idle
             partialText = ""

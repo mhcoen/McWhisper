@@ -39,6 +39,25 @@ struct PasteManagerTests {
     }
 
     @MainActor
+    @Test("paste writes text to system pasteboard")
+    func pasteWritesToPasteboard() {
+        let manager = PasteManager()
+        manager.captureTarget()
+        manager.paste("hello world")
+        let result = NSPasteboard.general.string(forType: .string)
+        #expect(result == "hello world")
+    }
+
+    @MainActor
+    @Test("paste works without captured target")
+    func pasteWithoutTarget() {
+        let manager = PasteManager()
+        manager.paste("no target")
+        let result = NSPasteboard.general.string(forType: .string)
+        #expect(result == "no target")
+    }
+
+    @MainActor
     @Test("captureTarget can be called multiple times")
     func captureTargetIdempotent() {
         let manager = PasteManager()

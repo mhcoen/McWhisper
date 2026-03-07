@@ -16,8 +16,10 @@ final class PasteManager {
         targetApplication = nil
     }
 
-    /// Writes text to the system pasteboard and simulates Cmd+V to paste.
+    /// Re-focuses the captured app, writes text to the system pasteboard, and simulates Cmd+V to paste.
     func paste(_ text: String) {
+        targetApplication?.activate()
+
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
