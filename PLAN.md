@@ -73,10 +73,10 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Expand `MenuBarExtra` menu with sections: current mode selector (radio group), separator, "Recording History…" (opens history window), "Settings…" (opens settings window), separator, "Quit"
   - [x] Show a pulsing red dot on the menu bar icon while recording using a `MenuBarExtra` label view that reacts to `AudioEngine.isRecording`
 
-- [ ] Build settings window
+- [x] Build settings window
   - [x] Create `SettingsView.swift` with tabs: General (hotkey recorder, launch at login toggle), Models (list of WhisperKit model IDs with download/delete, active model picker), Modes (list of built-in and custom modes with edit sheet for name + prompt)
   - [x] Hotkey recorder: a focusable `NSViewRepresentable` that captures the next key combo and saves it to `AppSettings`
-  - [ ] Model download: show download progress with `URLSession` downloading the WhisperKit model package to `~/Library/Application Support/McWhisper/Models/`
+  - [x] Model download: show download progress with `URLSession` downloading the WhisperKit model package to `~/Library/Application Support/McWhisper/Models/`
 
 - [ ] Build transcription history window
   - [ ] Create `HistoryView.swift`: searchable `List` of `TranscriptionRecord` sorted by date descending; each row shows timestamp, duration, mode badge, and first line of processed text
