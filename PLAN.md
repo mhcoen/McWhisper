@@ -54,10 +54,10 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Animate window appearance/disappearance with fade; save last window position to `UserDefaults` and restore on next show
   - [x] Wire `AudioEngine.audioLevel` to the view; render a 30-bar animated waveform using bars whose heights are driven by a rolling buffer of recent RMS values
 
-- [ ] Build audio waveform visualization component
+- [x] Build audio waveform visualization component
   - [x] Create `WaveformView.swift`: a SwiftUI `Canvas` drawing 30 vertical bars centered horizontally; bar heights are proportional to values in a `[Float]` ring buffer (capacity 30)
   - [x] Animate smoothly with `withAnimation(.linear(duration: 0.05))` on each new audio level sample
-  - [ ] Show flat bars when not recording; pulse gently with a sine wave to indicate standby
+  - [x] Show flat bars when not recording; pulse gently with a sine wave to indicate standby
 
 - [ ] Implement transcription mode post-processing
   - [ ] Create `ModeProcessor.swift`; for Phase 1 apply simple rule-based formatting per mode (Voice: raw text; Message: ensure sentence case and punctuation; Email: add greeting/sign-off placeholders; Note: bullet-point line breaks; Meeting: paragraph breaks on pauses)
