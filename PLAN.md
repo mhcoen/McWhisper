@@ -69,9 +69,9 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] After transcription, re-focus the captured app with `app.activate(options: .activateIgnoringOtherApps)`, write text to `NSPasteboard.general`, then synthesize `⌘V` via `CGEvent` keystroke
   - [x] If paste fails (no frontmost app captured or app no longer running), copy to clipboard and show a brief HUD notification in `RecordingView` ("Copied to clipboard")
 
-- [ ] Build menu bar menu
+- [x] Build menu bar menu
   - [x] Expand `MenuBarExtra` menu with sections: current mode selector (radio group), separator, "Recording History…" (opens history window), "Settings…" (opens settings window), separator, "Quit"
-  - [ ] Show a pulsing red dot on the menu bar icon while recording using a `MenuBarExtra` label view that reacts to `AudioEngine.isRecording`
+  - [x] Show a pulsing red dot on the menu bar icon while recording using a `MenuBarExtra` label view that reacts to `AudioEngine.isRecording`
 
 - [ ] Build settings window
   - [ ] Create `SettingsView.swift` with tabs: General (hotkey recorder, launch at login toggle), Models (list of WhisperKit model IDs with download/delete, active model picker), Modes (list of built-in and custom modes with edit sheet for name + prompt)
