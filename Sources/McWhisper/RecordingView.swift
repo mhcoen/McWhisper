@@ -9,7 +9,9 @@ struct RecordingView: View {
         Group {
             switch coordinator.state {
             case .idle:
-                EmptyView()
+                StandbyWaveformView()
+                    .frame(height: 32)
+                    .padding(12)
             case .recording:
                 RecordingStateView(
                     levelSamples: coordinator.levelSamples,

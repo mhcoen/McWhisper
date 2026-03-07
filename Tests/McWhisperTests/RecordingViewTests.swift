@@ -115,4 +115,75 @@ struct RecordingViewTests {
         let view = WaveformView(levels: levels)
         _ = view.body
     }
+
+    // MARK: - Standby waveform
+
+    @Test("standbyLevels returns correct count")
+    func standbyLevelsCount() {
+        let levels = WaveformView.standbyLevels(phase: 0, count: 30)
+        #expect(levels.count == 30)
+    }
+
+    @Test("standbyLevels returns empty for zero count")
+    func standbyLevelsEmpty() {
+        let levels = WaveformView.standbyLevels(phase: 0, count: 0)
+        #expect(levels.isEmpty)
+    }
+
+    @Test("standbyLevels are uniform (all bars equal)")
+    func standbyLevelsUniform() {
+        let levels = WaveformView.standbyLevels(phase: 1.23, count: 10)
+        let first = levels[0]
+        for level in levels {
+            #expect(level == first)
+        }
+    }
+
+    @Test("standbyLevels are at or above minimumLevel")
+    func standbyLevelsAboveMinimum() {
+        for t in stride(from: 0.0, through: 4.0, by: 0.1) {
+            let levels = WaveformView.standbyLevels(phase: t)
+            for level in levels {
+                #expect(level >= WaveformView.minimumLevel)
+            }
+        }
+    }
+
+    @Test("standbyLevels vary over time (sine pulse)")
+    func standbyLevelsPulse() {
+        let atZero = WaveformView.standbyLevels(phase: 0)[0]
+        let atQuarter = WaveformView.standbyLevels(phase: WaveformView.standbyPeriod / 4.0)[0]
+        #expect(atZero != atQuarter)
+    }
+
+    @Test("standbyLevels peak does not exceed minimumLevel + amplitude")
+    func standbyLevelsPeakBounded() {
+        let peak = WaveformView.standbyLevels(phase: WaveformView.standbyPeriod / 4.0)[0]
+        let maxExpected = WaveformView.minimumLevel + WaveformView.standbyAmplitude
+        #expect(peak <= maxExpected + 0.001)
+    }
+
+    @Test("standbyAmplitude is positive")
+    func standbyAmplitudePositive() {
+        #expect(WaveformView.standbyAmplitude > 0)
+    }
+
+    @Test("standbyPeriod is positive")
+    func standbyPeriodPositive() {
+        #expect(WaveformView.standbyPeriod > 0)
+    }
+
+    @Test("StandbyWaveformView builds")
+    func standbyWaveformViewBuilds() {
+        let view = StandbyWaveformView()
+        _ = view.body
+    }
+
+    @MainActor
+    @Test("RecordingView idle state shows standby waveform")
+    func idleStateShowsStandby() {
+        let coordinator = RecordingCoordinator()
+        let view = RecordingView(coordinator: coordinator)
+        _ = view.body
+    }
 }
