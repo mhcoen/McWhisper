@@ -20,6 +20,8 @@ final class RecordingCoordinator: ObservableObject {
 
     @Published private(set) var state: State = .idle
     @Published private(set) var partialText: String = ""
+    @Published private(set) var rawText: String = ""
+    @Published private(set) var processedText: String = ""
 
     /// Rolling buffer of recent RMS audio levels for waveform display.
     static let levelBufferSize = 30
@@ -76,6 +78,8 @@ final class RecordingCoordinator: ObservableObject {
 
         do {
             levelSamples = Array(repeating: 0, count: Self.levelBufferSize)
+            rawText = ""
+            processedText = ""
             try audioEngine.startRecording()
             recordingStartTime = Date()
             state = .recording
@@ -127,6 +131,8 @@ final class RecordingCoordinator: ObservableObject {
 
             let mode = TranscriptionMode.from(id: AppSettings.selectedMode) ?? .voice
             let processed = ModeProcessor.process(text, mode: mode)
+            rawText = text
+            processedText = processed
             let record = TranscriptionRecord(
                 duration: duration,
                 rawText: text,

@@ -65,4 +65,18 @@ struct RecordingCoordinatorTests {
         coordinator.stop()
         #expect(coordinator.state == .idle)
     }
+
+    @MainActor
+    @Test("Initial rawText is empty")
+    func initialRawText() {
+        let coordinator = RecordingCoordinator()
+        #expect(coordinator.rawText.isEmpty)
+    }
+
+    @MainActor
+    @Test("Initial processedText is empty")
+    func initialProcessedText() {
+        let coordinator = RecordingCoordinator()
+        #expect(coordinator.processedText.isEmpty)
+    }
 }

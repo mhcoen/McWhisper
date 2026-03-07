@@ -47,13 +47,73 @@ struct RecordingViewTests {
 
     @Test("TranscribingStateView shows placeholder when no partial text")
     func transcribingStateEmpty() {
-        let view = TranscribingStateView(partialText: "")
+        var showProcessed = true
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TranscribingStateView(partialText: "", rawText: "", processedText: "", showProcessed: binding)
         _ = view.body
     }
 
     @Test("TranscribingStateView shows partial text")
     func transcribingStateWithPartial() {
-        let view = TranscribingStateView(partialText: "Working...")
+        var showProcessed = true
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TranscribingStateView(partialText: "Working...", rawText: "", processedText: "", showProcessed: binding)
+        _ = view.body
+    }
+
+    @Test("TranscribingStateView hasResult is false when texts are empty")
+    func transcribingHasResultFalse() {
+        var showProcessed = true
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TranscribingStateView(partialText: "partial", rawText: "", processedText: "", showProcessed: binding)
+        #expect(!view.hasResult)
+    }
+
+    @Test("TranscribingStateView hasResult is true when both texts are present")
+    func transcribingHasResultTrue() {
+        var showProcessed = true
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TranscribingStateView(partialText: "", rawText: "hello world", processedText: "Hello world.", showProcessed: binding)
+        #expect(view.hasResult)
+    }
+
+    @Test("TranscribingStateView displayText shows processedText when toggle is on")
+    func transcribingDisplayTextProcessed() {
+        var showProcessed = true
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TranscribingStateView(partialText: "", rawText: "hello world", processedText: "Hello world.", showProcessed: binding)
+        #expect(view.displayText == "Hello world.")
+    }
+
+    @Test("TranscribingStateView displayText shows rawText when toggle is off")
+    func transcribingDisplayTextRaw() {
+        var showProcessed = false
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TranscribingStateView(partialText: "", rawText: "hello world", processedText: "Hello world.", showProcessed: binding)
+        #expect(view.displayText == "hello world")
+    }
+
+    @Test("TranscribingStateView displayText falls back to partialText before result")
+    func transcribingDisplayTextFallback() {
+        var showProcessed = true
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TranscribingStateView(partialText: "partial so far", rawText: "", processedText: "", showProcessed: binding)
+        #expect(view.displayText == "partial so far")
+    }
+
+    @Test("TranscribingStateView builds with result and toggle")
+    func transcribingStateWithResult() {
+        var showProcessed = false
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TranscribingStateView(partialText: "", rawText: "raw", processedText: "Processed.", showProcessed: binding)
+        _ = view.body
+    }
+
+    @Test("TextToggleView builds")
+    func textToggleViewBuilds() {
+        var showProcessed = true
+        let binding = Binding(get: { showProcessed }, set: { showProcessed = $0 })
+        let view = TextToggleView(showProcessed: binding)
         _ = view.body
     }
 

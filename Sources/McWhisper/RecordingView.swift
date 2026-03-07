@@ -4,6 +4,7 @@ import SwiftUI
 /// Drives visibility and content from `RecordingCoordinator.State`.
 struct RecordingView: View {
     @ObservedObject var coordinator: RecordingCoordinator
+    @State private var showProcessed = true
 
     var body: some View {
         Group {
@@ -18,7 +19,12 @@ struct RecordingView: View {
                     partialText: coordinator.partialText
                 )
             case .transcribing:
-                TranscribingStateView(partialText: coordinator.partialText)
+                TranscribingStateView(
+                    partialText: coordinator.partialText,
+                    rawText: coordinator.rawText,
+                    processedText: coordinator.processedText,
+                    showProcessed: $showProcessed
+                )
             case .error(let message):
                 ErrorStateView(message: message)
             }
@@ -53,13 +59,34 @@ struct RecordingStateView: View {
 
 struct TranscribingStateView: View {
     let partialText: String
+    let rawText: String
+    let processedText: String
+    @Binding var showProcessed: Bool
+
+    /// Whether the final transcription result is available with formatting applied.
+    var hasResult: Bool {
+        !rawText.isEmpty && !processedText.isEmpty
+    }
+
+    /// The text to display based on current toggle state and availability.
+    var displayText: String {
+        if hasResult {
+            return showProcessed ? processedText : rawText
+        }
+        return partialText
+    }
 
     var body: some View {
         VStack(spacing: 8) {
-            ProgressView()
-                .controlSize(.small)
-            if !partialText.isEmpty {
-                Text(partialText)
+            if !hasResult {
+                ProgressView()
+                    .controlSize(.small)
+            }
+            if hasResult {
+                TextToggleView(showProcessed: $showProcessed)
+            }
+            if !displayText.isEmpty {
+                Text(displayText)
                     .font(.system(.body, design: .rounded))
                     .lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -70,6 +97,37 @@ struct TranscribingStateView: View {
             }
         }
         .padding(12)
+    }
+}
+
+// MARK: - Text Toggle
+
+struct TextToggleView: View {
+    @Binding var showProcessed: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            toggleButton(label: "Raw", active: !showProcessed) {
+                showProcessed = false
+            }
+            toggleButton(label: "Processed", active: showProcessed) {
+                showProcessed = true
+            }
+        }
+        .font(.system(.caption2, design: .rounded))
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    private func toggleButton(label: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(active ? Color.accentColor.opacity(0.2) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(active ? .primary : .secondary)
     }
 }
 
