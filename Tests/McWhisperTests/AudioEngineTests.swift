@@ -71,6 +71,13 @@ struct AudioEngineTests {
         _ = engine.objectWillChange
     }
 
+    @Test("isRecording is observable via @Published")
+    func isRecordingPublished() {
+        let engine = AudioEngine()
+        // $isRecording publisher exists — confirms @Published annotation
+        _ = engine.$isRecording
+    }
+
     @Test("speechDetected defaults to false")
     func speechDetectedDefault() {
         let engine = AudioEngine()

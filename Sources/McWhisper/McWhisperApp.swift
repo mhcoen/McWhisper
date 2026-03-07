@@ -17,8 +17,32 @@ struct McWhisperApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("McWhisper", systemImage: "waveform") {
+        MenuBarExtra {
             MenuBarView(coordinator: coordinator)
+        } label: {
+            MenuBarLabel(isRecording: coordinator.audioEngine.isRecording)
+        }
+    }
+}
+
+struct MenuBarLabel: View {
+    var isRecording: Bool
+
+    /// Pulse period in seconds for the recording indicator.
+    static let pulsePeriod: TimeInterval = 1.0
+
+    var body: some View {
+        if isRecording {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                let phase = context.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: Self.pulsePeriod)
+                let opacity = 0.3 + 0.7 * (0.5 + 0.5 * cos(phase / Self.pulsePeriod * 2 * .pi))
+                Image(systemName: "record.circle")
+                    .symbolRenderingMode(.multicolor)
+                    .opacity(opacity)
+            }
+        } else {
+            Image(systemName: "waveform")
         }
     }
 }

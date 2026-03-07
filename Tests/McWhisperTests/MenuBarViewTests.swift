@@ -82,4 +82,21 @@ struct MenuBarViewTests {
         let b = SettingsWindowController.shared
         #expect(a === b)
     }
+
+    @Test("MenuBarLabel builds when not recording")
+    func menuBarLabelNotRecording() {
+        let view = MenuBarLabel(isRecording: false)
+        _ = view.body
+    }
+
+    @Test("MenuBarLabel builds when recording")
+    func menuBarLabelRecording() {
+        let view = MenuBarLabel(isRecording: true)
+        _ = view.body
+    }
+
+    @Test("MenuBarLabel pulse period is positive")
+    func menuBarLabelPulsePeriod() {
+        #expect(MenuBarLabel.pulsePeriod > 0)
+    }
 }

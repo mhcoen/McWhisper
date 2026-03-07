@@ -13,7 +13,7 @@ final class AudioEngine: ObservableObject {
     private var engine: AVAudioEngine?
     private var outputFile: AVAudioFile?
     private var recordingURL: URL?
-    private(set) var isRecording = false
+    @Published private(set) var isRecording = false
 
     /// RMS audio level (0.0–1.0) updated on each buffer during recording.
     @Published private(set) var audioLevel: Float = 0.0
