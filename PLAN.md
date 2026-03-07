@@ -64,10 +64,10 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Expose `process(rawText:mode:) -> String`; hook into the transcription pipeline between raw result and paste
   - [x] Display both raw and processed text in `RecordingView` with a toggle
 
-- [ ] Implement auto-paste and clipboard fallback
+- [x] Implement auto-paste and clipboard fallback
   - [x] Create `PasteManager.swift`; before push-to-talk key-down, capture the frontmost `NSRunningApplication` via `NSWorkspace.shared.frontmostApplication`
   - [x] After transcription, re-focus the captured app with `app.activate(options: .activateIgnoringOtherApps)`, write text to `NSPasteboard.general`, then synthesize `⌘V` via `CGEvent` keystroke
-  - [ ] If paste fails (no frontmost app captured or app no longer running), copy to clipboard and show a brief HUD notification in `RecordingView` ("Copied to clipboard")
+  - [x] If paste fails (no frontmost app captured or app no longer running), copy to clipboard and show a brief HUD notification in `RecordingView` ("Copied to clipboard")
 
 - [ ] Build menu bar menu
   - [ ] Expand `MenuBarExtra` menu with sections: current mode selector (radio group), separator, "Recording History…" (opens history window), "Settings…" (opens settings window), separator, "Quit"
