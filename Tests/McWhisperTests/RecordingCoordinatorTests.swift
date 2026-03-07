@@ -56,6 +56,7 @@ struct RecordingCoordinatorTests {
         _ = coordinator.whisperEngine
         _ = coordinator.historyStore
         _ = coordinator.windowController
+        _ = coordinator.pasteManager
     }
 
     @MainActor

@@ -10,6 +10,7 @@ final class RecordingCoordinator: ObservableObject {
     let whisperEngine = WhisperKitEngine()
     let historyStore = HistoryStore()
     let windowController = RecordingWindowController()
+    let pasteManager = PasteManager()
 
     enum State: Equatable {
         case idle
@@ -77,6 +78,7 @@ final class RecordingCoordinator: ObservableObject {
         guard state == .idle else { return }
 
         do {
+            pasteManager.captureTarget()
             levelSamples = Array(repeating: 0, count: Self.levelBufferSize)
             rawText = ""
             processedText = ""
@@ -142,7 +144,7 @@ final class RecordingCoordinator: ObservableObject {
             )
             historyStore.add(record)
 
-            pasteText(processed)
+            pasteManager.paste(processed)
             windowController.hide()
             state = .idle
             partialText = ""
@@ -153,21 +155,4 @@ final class RecordingCoordinator: ObservableObject {
         try? FileManager.default.removeItem(at: audioURL)
     }
 
-    // MARK: - Paste into active app
-
-    /// Writes text to the system pasteboard and simulates Cmd+V.
-    private func pasteText(_ text: String) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-
-        let source = CGEventSource(stateID: .hidSystemState)
-        // keyCode 9 = 'v'
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true)
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false)
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-        keyUp?.post(tap: .cghidEventTap)
-    }
 }
