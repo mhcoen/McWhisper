@@ -17,46 +17,46 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Add WhisperKit and qwen3-asr-swift as package dependencies
   - [x] Create `Sources/McWhisper/McWhisperApp.swift` with `@main` App struct; set activation policy to `.accessory` (no Dock icon) and include the `NSApplication.shared.setActivationPolicy(.regular)` workaround for SPM SwiftUI in `init()`
   - [x] Add a bare `MenuBarExtra` with a placeholder "McWhisper" label and a Quit button so the app is launchable
-  - [ ] Create `run.sh`: builds with `swift build -c release --disable-sandbox`, assembles `McWhisper.app` bundle with correct `Info.plist` (LSUIElement=YES, NSMicrophoneUsageDescription, bundle ID `com.mcwhisper.app`), ad-hoc codesigns with `codesign --deep -s -`, launches the app, and exits 0
+  - [x] Create `run.sh`: builds with `swift build -c release --disable-sandbox`, assembles `McWhisper.app` bundle with correct `Info.plist` (LSUIElement=YES, NSMicrophoneUsageDescription, bundle ID `com.mcwhisper.app`), ad-hoc codesigns with `codesign --deep -s -`, launches the app, and exits 0
   - [ ] Verify `run.sh` succeeds and app appears in menu bar; capture screenshot with `appshot`
 
-- [ ] Define app-wide data model and settings store
-  - [ ] Create `AppSettings.swift` using `@AppStorage` / `UserDefaults` for: selected model ID, push-to-talk hotkey keycode + modifiers, selected mode, language selection ("auto" default)
-  - [ ] Create `TranscriptionMode.swift` enum with cases Voice, Message, Email, Note, Meeting plus a Custom case carrying a name and prompt string; store custom modes as JSON in UserDefaults
-  - [ ] Create `TranscriptionRecord.swift` struct (id, date, duration, rawText, processedText, mode, modelID) and a `HistoryStore` class persisting an array to a JSON file in Application Support
+- [x] Define app-wide data model and settings store
+  - [x] Create `AppSettings.swift` using `@AppStorage` / `UserDefaults` for: selected model ID, push-to-talk hotkey keycode + modifiers, selected mode, language selection ("auto" default)
+  - [x] Create `TranscriptionMode.swift` enum with cases Voice, Message, Email, Note, Meeting plus a Custom case carrying a name and prompt string; store custom modes as JSON in UserDefaults
+  - [x] Create `TranscriptionRecord.swift` struct (id, date, duration, rawText, processedText, mode, modelID) and a `HistoryStore` class persisting an array to a JSON file in Application Support
 
-- [ ] Implement microphone audio capture engine
-  - [ ] Create `AudioEngine.swift` wrapping `AVAudioEngine` + `AVAudioInputNode`; expose `startRecording()` / `stopRecording()` returning a temporary `.wav` file URL
-  - [ ] Tap the input node at 16 kHz mono (required by Whisper); write raw PCM via `AVAudioFile`
-  - [ ] Publish a `@Published var audioLevel: Float` (RMS) updated on each buffer for waveform use
-  - [ ] Add `AVCaptureDevice.requestAccess(for: .audio)` call at first launch with graceful error alert if denied
+- [x] Implement microphone audio capture engine
+  - [x] Create `AudioEngine.swift` wrapping `AVAudioEngine` + `AVAudioInputNode`; expose `startRecording()` / `stopRecording()` returning a temporary `.wav` file URL
+  - [x] Tap the input node at 16 kHz mono (required by Whisper); write raw PCM via `AVAudioFile`
+  - [x] Publish a `@Published var audioLevel: Float` (RMS) updated on each buffer for waveform use
+  - [x] Add `AVCaptureDevice.requestAccess(for: .audio)` call at first launch with graceful error alert if denied
 
-- [ ] Implement Voice Activity Detection (VAD) and silence trimming
-  - [ ] Add lightweight energy-based VAD in `AudioEngine.swift`: track RMS per 20 ms frame; expose `@Published var speechDetected: Bool`
-  - [ ] After `stopRecording()`, strip leading and trailing silence frames below threshold before writing final audio file
-  - [ ] Expose a configurable silence threshold in `AppSettings`
+- [x] Implement Voice Activity Detection (VAD) and silence trimming
+  - [x] Add lightweight energy-based VAD in `AudioEngine.swift`: track RMS per 20 ms frame; expose `@Published var speechDetected: Bool`
+  - [x] After `stopRecording()`, strip leading and trailing silence frames below threshold before writing final audio file
+  - [x] Expose a configurable silence threshold in `AppSettings`
 
-- [ ] Integrate WhisperKit for local transcription
-  - [ ] Create `TranscriptionService.swift` with a `WhisperKitEngine` class; on init, load the model specified in `AppSettings.selectedModelID` asynchronously
-  - [ ] Implement `transcribe(audioURL:language:) async throws -> String` using WhisperKit's pipeline; pass `language: nil` when auto-detect is selected
-  - [ ] Implement `transcribeStreaming(audioURL:language:onPartial:) async throws -> String` for real-time partial results via WhisperKit's decode loop; call `onPartial` closure with each partial string
-  - [ ] Default bundled model: `openai_whisper-base` (small enough to ship); larger models downloadable later
+- [x] Integrate WhisperKit for local transcription
+  - [x] Create `TranscriptionService.swift` with a `WhisperKitEngine` class; on init, load the model specified in `AppSettings.selectedModelID` asynchronously
+  - [x] Implement `transcribe(audioURL:language:) async throws -> String` using WhisperKit's pipeline; pass `language: nil` when auto-detect is selected
+  - [x] Implement `transcribeStreaming(audioURL:language:onPartial:) async throws -> String` for real-time partial results via WhisperKit's decode loop; call `onPartial` closure with each partial string
+  - [x] Default bundled model: `openai_whisper-base` (small enough to ship); larger models downloadable later
 
-- [ ] Implement global push-to-talk hotkey
-  - [ ] Create `HotkeyManager.swift` using `CGEventTap` (requires Accessibility permission); register a key-down event tap for the configured keycode + modifiers
-  - [ ] On key-down start recording via `AudioEngine`; on key-up stop recording and kick off transcription pipeline
-  - [ ] Request Accessibility permission at first launch with an alert linking to System Settings if not granted
-  - [ ] Store and restore the hotkey binding from `AppSettings`; default to `⌥Space`
+- [x] Implement global push-to-talk hotkey
+  - [x] Create `HotkeyManager.swift` using `CGEventTap` (requires Accessibility permission); register a key-down event tap for the configured keycode + modifiers
+  - [x] On key-down start recording via `AudioEngine`; on key-up stop recording and kick off transcription pipeline
+  - [x] Request Accessibility permission at first launch with an alert linking to System Settings if not granted
+  - [x] Store and restore the hotkey binding from `AppSettings`; default to `⌥Space`
 
-- [ ] Build floating recording window
-  - [ ] Create `RecordingWindowController.swift` managing an `NSPanel` with `NSPanel.styleMask` `.nonactivatingPanel`; window floats above all apps (`level = .floating`) and does not steal focus
-  - [ ] `RecordingView.swift` (SwiftUI): show state-driven UI — idle (hidden), recording (waveform + live transcript), processing (spinner), result (processed text + action buttons)
-  - [ ] Animate window appearance/disappearance with fade; save last window position to `UserDefaults` and restore on next show
-  - [ ] Wire `AudioEngine.audioLevel` to the view; render a 30-bar animated waveform using bars whose heights are driven by a rolling buffer of recent RMS values
+- [x] Build floating recording window
+  - [x] Create `RecordingWindowController.swift` managing an `NSPanel` with `NSPanel.styleMask` `.nonactivatingPanel`; window floats above all apps (`level = .floating`) and does not steal focus
+  - [x] `RecordingView.swift` (SwiftUI): show state-driven UI — idle (hidden), recording (waveform + live transcript), processing (spinner), result (processed text + action buttons)
+  - [x] Animate window appearance/disappearance with fade; save last window position to `UserDefaults` and restore on next show
+  - [x] Wire `AudioEngine.audioLevel` to the view; render a 30-bar animated waveform using bars whose heights are driven by a rolling buffer of recent RMS values
 
 - [ ] Build audio waveform visualization component
-  - [ ] Create `WaveformView.swift`: a SwiftUI `Canvas` drawing 30 vertical bars centered horizontally; bar heights are proportional to values in a `[Float]` ring buffer (capacity 30)
-  - [ ] Animate smoothly with `withAnimation(.linear(duration: 0.05))` on each new audio level sample
+  - [x] Create `WaveformView.swift`: a SwiftUI `Canvas` drawing 30 vertical bars centered horizontally; bar heights are proportional to values in a `[Float]` ring buffer (capacity 30)
+  - [x] Animate smoothly with `withAnimation(.linear(duration: 0.05))` on each new audio level sample
   - [ ] Show flat bars when not recording; pulse gently with a sine wave to indicate standby
 
 - [ ] Implement transcription mode post-processing
@@ -84,8 +84,8 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [ ] Multi-select delete with confirmation alert; persist deletions to `HistoryStore`
 
 - [ ] Wire end-to-end pipeline and integration test
-  - [ ] Connect hotkey → audio capture → VAD → WhisperKit streaming transcription → mode post-processing → auto-paste, updating `RecordingView` state at each step
-  - [ ] Save completed transcription to `HistoryStore` including audio file path, timestamps, model, and mode
+  - [x] Connect hotkey → audio capture → VAD → WhisperKit streaming transcription → mode post-processing → auto-paste, updating `RecordingView` state at each step
+  - [x] Save completed transcription to `HistoryStore` including audio file path, timestamps, model, and mode
   - [ ] Run `run.sh`, launch app, hold `⌥Space`, speak a sentence, release, confirm text appears in `RecordingView` and is pasted into TextEdit; capture screenshot with `appshot McWhisper screenshots/current/recording.png`
 
 - [ ] Polish, permissions flow, and launch-at-login
@@ -103,3 +103,12 @@ The plan has **15 checklist items** covering the full Phase 1 pipeline. Key desi
 - **WhisperKit streaming** is wired for real-time partial text display, not just batch result.
 - **`CGEventTap` hotkey** and **`CGEvent` paste** are called out explicitly so the builder knows the system API path.
 - **Floating `NSPanel`** (non-activating) keeps focus in the target app — critical for the paste flow to work correctly.
+
+---
+
+## Implemented but not originally planned
+
+- [x] Create `ModelCatalog.swift` enum listing available Whisper models with `bundledModelID`, `availableModels`, `downloadableModels`, and `model(for:)` lookup; `openai_whisper-base` as the single bundled default
+- [x] Create `MicrophonePermission.swift` helper with static `status` and async `request()` wrapping `AVCaptureDevice` audio authorization
+- [x] Create `RecordingCoordinator.swift` (`@MainActor ObservableObject`) orchestrating the full push-to-talk flow: owns `HotkeyManager`, `AudioEngine`, `WhisperKitEngine`, `HistoryStore`, and `RecordingWindowController`; manages state machine (idle/recording/transcribing/error), rolling level buffer, and inline paste via `NSPasteboard` + `CGEvent` Cmd+V
+- [x] Add comprehensive unit test suite: `McWhisperTests`, `AppSettingsTests`, `TranscriptionServiceTests`, `TranscriptionModeTests`, `HistoryStoreTests`, `AudioEngineTests`, `HotkeyManagerTests`, `ModelCatalogTests`, `MicrophonePermissionTests`, `RecordingViewTests`, `RecordingWindowControllerTests`, `RecordingCoordinatorTests`, `BundleTests`, `AppBundleTests`
