@@ -34,33 +34,3 @@ final class HistoryWindowController {
     }
 }
 
-struct HistoryView: View {
-    let historyStore: HistoryStore
-
-    var body: some View {
-        VStack {
-            if historyStore.records.isEmpty {
-                Text("No recordings yet.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                List(historyStore.records.reversed()) { record in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(record.processedText.isEmpty ? record.rawText : record.processedText)
-                            .lineLimit(3)
-                        HStack {
-                            Text(record.date, style: .date)
-                            Text(record.date, style: .time)
-                            Text("·")
-                            Text(record.mode.displayName)
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 2)
-                }
-            }
-        }
-        .frame(minWidth: 300, minHeight: 200)
-    }
-}

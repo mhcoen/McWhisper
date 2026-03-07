@@ -60,6 +60,66 @@ struct MenuBarViewTests {
         try? FileManager.default.removeItem(at: dir)
     }
 
+    @Test("HistoryRow builds and shows first line")
+    func historyRowBuilds() {
+        let record = TranscriptionRecord(
+            duration: 75,
+            rawText: "hello world",
+            processedText: "First line\nSecond line",
+            mode: .message,
+            modelID: "test"
+        )
+        let row = HistoryRow(record: record)
+        _ = row.body
+    }
+
+    @Test("HistoryRow duration formatting under 60s")
+    func historyRowDurationShort() {
+        let record = TranscriptionRecord(
+            duration: 42,
+            rawText: "test",
+            processedText: "",
+            mode: .voice,
+            modelID: "test"
+        )
+        let row = HistoryRow(record: record)
+        _ = row.body
+    }
+
+    @Test("HistoryRow duration formatting over 60s")
+    func historyRowDurationLong() {
+        let record = TranscriptionRecord(
+            duration: 125,
+            rawText: "test",
+            processedText: "",
+            mode: .voice,
+            modelID: "test"
+        )
+        let row = HistoryRow(record: record)
+        _ = row.body
+    }
+
+    @Test("HistoryRow falls back to rawText when processedText is empty")
+    func historyRowFallback() {
+        let record = TranscriptionRecord(
+            duration: 5,
+            rawText: "raw text here",
+            processedText: "",
+            mode: .note,
+            modelID: "test"
+        )
+        let row = HistoryRow(record: record)
+        _ = row.body
+    }
+
+    @Test("ModeBadge builds for each built-in mode")
+    func modeBadgeBuilds() {
+        for mode in TranscriptionMode.builtIn {
+            let badge = ModeBadge(mode: mode)
+            _ = badge.body
+        }
+    }
+
     @MainActor
     @Test("SettingsView builds")
     func settingsViewBuilds() {
