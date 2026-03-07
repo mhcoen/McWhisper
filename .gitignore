@@ -1,0 +1,15 @@
+.build/
+.duplo/
+.mcloop/
+logs/
+*.app
+.swiftpm/
+Package.resolved
+.DS_Store
+*.o
+*.d
+*.swp
+*~
+\#*\#
+.#*
+screenshots/

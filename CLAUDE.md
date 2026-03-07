@@ -1,0 +1,80 @@
+# Visual verification
+
+Use `appshot` to capture screenshots of the running application.
+`appshot` captures a macOS app window by process name. It works
+with any app that puts a window on screen.
+
+```bash
+appshot "AppName" screenshots/current/main.png
+appshot "AppName" screenshots/current/main.png --launch ./run.sh
+appshot "AppName" screenshots/current/main.png --wait 2
+```
+
+Always use appshot for visual verification. Do not reinvent
+screenshot capture with other approaches.
+
+After capturing, examine the screenshot to confirm:
+- The window renders correctly with expected content
+- Layout and spacing are reasonable
+- No blank screens, missing elements, or rendering artifacts
+- Text is readable and properly styled
+
+Do not delete `screenshots/reference/` -- those are the
+target images duplo uses for visual comparison.
+
+# Swift SPM + SwiftUI
+
+SPM executables using SwiftUI do not automatically show windows.
+Every SwiftUI app built with SPM must include this in the App
+struct init:
+
+```swift
+init() {
+    NSApplication.shared.setActivationPolicy(.regular)
+    NSApplication.shared.activate(ignoringOtherApps: true)
+}
+```
+
+Use `swift build --disable-sandbox` and `swift test --disable-sandbox`
+inside Claude Code's sandbox.
+
+# Debugging
+
+When something crashes or behaves unexpectedly, find and read
+the actual error output first. Check crash reports
+(~/Library/Logs/DiagnosticReports/ on macOS), stderr, log
+files, tracebacks. Do not guess from source code alone.
+After fixing, reproduce the failure and verify it is gone.
+
+# Source files
+
+- `Package.swift` — SPM package manifest. macOS 14+, Swift 5.10. Single executable target `McWhisper` with a test target `McWhisperTests`.
+- `Sources/McWhisper/McWhisperApp.swift` — App entry point (`@main`). Sets `.regular` activation policy (SPM SwiftUI workaround), then switches to `.accessory` to hide from Dock. Shows a `MenuBarExtra` with a waveform icon, a `StatusView` displaying coordinator state (idle/recording/transcribing/error with partial text), and a Quit button (Cmd-Q). Uses `@NSApplicationDelegateAdaptor` with `AppDelegate` to request microphone permission at launch and show an `NSAlert` if denied, with an option to open System Settings. Also checks Accessibility permission at launch and shows an alert linking to System Settings > Accessibility if not granted. Owns a `@StateObject RecordingCoordinator` started via `.task` on `StatusView`.
+- `Sources/McWhisper/AppSettings.swift` — App-wide settings using `@AppStorage` / `UserDefaults`. Static properties for selected model ID, push-to-talk hotkey keycode + modifiers, selected mode, language selection ("auto" default), silence threshold (0.015 default, used by AudioEngine VAD and trim), and panel position persistence (panelPositionX, panelPositionY, hasSavedPanelPosition). Includes `resetToDefaults()`.
+- `Sources/McWhisper/TranscriptionMode.swift` — `TranscriptionMode` enum with cases `.voice`, `.message`, `.email`, `.note`, `.meeting`, and `.custom(name:prompt:)`. Codable for JSON persistence. Built-in modes via `builtIn`, custom modes saved/loaded from UserDefaults as JSON. Provides `allModes()`, `from(id:)` lookup, `displayName`, and string `id` for each case.
+- `Sources/McWhisper/TranscriptionRecord.swift` — `TranscriptionRecord` struct (Codable, Identifiable, Equatable) with fields: id (UUID), date, duration, rawText, processedText, mode (TranscriptionMode), modelID. Default initializer auto-generates id and date.
+- `Sources/McWhisper/HistoryStore.swift` — `HistoryStore` class persisting an array of `TranscriptionRecord` to a JSON file in `~/Library/Application Support/McWhisper/history.json`. Supports add, deleteRecord(id:), clearAll. Accepts optional directory for testing. Loads on init, saves on mutation.
+- `Sources/McWhisper/AudioEngine.swift` — `ObservableObject` wrapping `AVAudioEngine` + `AVAudioInputNode` for microphone recording. `startRecording()` installs an audio tap, converts to 16-bit 16 kHz mono WAV via `AVAudioConverter`, and writes to a temp file. `stopRecording()` tears down the engine, trims leading/trailing silence from the WAV file via `trimSilence(url:frameDuration:threshold:)`, and returns the `.wav` URL. Exposes `isRecording` state, `@Published audioLevel: Float` (RMS 0–1, updated per buffer on main thread for waveform UI), `@Published speechDetected: Bool` (energy-based VAD using 20 ms frame RMS with configurable threshold and 300 ms hangover), and a static `whisperFormat` (`AVAudioFormat`: 16 kHz, mono, Int16, interleaved). Static `trimSilence(url:frameDuration:threshold:)` reads the WAV into float, scans 20 ms frames from both ends to find first/last above-threshold frames, and rewrites the file in-place with only the speech region (all-silent files produce an empty WAV). Static VAD config: `vadFrameDuration` (0.020 s), `vadThreshold` (computed property reading from `AppSettings.silenceThreshold`), `vadHangoverDuration` (0.300 s). Throws `AudioEngineError` (alreadyRecording, notRecording, noInputAvailable, engineStartFailed, fileCreationFailed).
+- `Sources/McWhisper/TranscriptionService.swift` — `WhisperKitEngine` class (`ObservableObject`) wrapping WhisperKit for local speech-to-text. `loadModel()` async downloads/loads the Whisper model variant from `AppSettings.selectedModelID`. `transcribe(audioURL:language:) async throws -> String` runs WhisperKit's pipeline on a WAV file; passes `language: nil` with `detectLanguage: true` when language is `nil` or `"auto"`. `transcribeStreaming(audioURL:language:onPartial:) async throws -> String` provides real-time partial results during decoding via WhisperKit's `TranscriptionCallback`; calls the `@Sendable onPartial` closure with each intermediate text string and returns the final result. Exposes `@Published modelState: ModelState`, `isModelCurrent` check, and `modelVariant(from:)` helper to extract variant name from model ID. Throws `TranscriptionError` (modelNotLoaded, transcriptionFailed, emptyResult).
+- `Sources/McWhisper/HotkeyManager.swift` — `HotkeyManager` class (`ObservableObject`) providing global push-to-talk hotkey via `CGEventTap` (requires Accessibility permission). `start()` creates a session event tap listening for keyDown/keyUp/flagsChanged events matching the configured keycode + modifiers from `AppSettings`. `stop()` tears down the tap. `matches(_:)` checks a `CGEvent` against the configured hotkey. Exposes `@Published isKeyDown: Bool`, `onKeyDown`/`onKeyUp` closures called on the main thread, and computed `keyCode`/`modifiers` reading from `AppSettings`. Static `hasAccessibilityPermission` checks `AXIsProcessTrusted()`, `requestAccessibilityPermission()` prompts via system dialog. Swallows matched key events to prevent them reaching the active app. Re-enables the tap on system timeout. Throws `HotkeyManagerError` (accessibilityNotGranted, eventTapCreationFailed).
+- `Sources/McWhisper/RecordingView.swift` — SwiftUI view displayed inside the floating recording panel, driven by `RecordingCoordinator.State`. Idle state renders `EmptyView` (hidden). Recording state shows `RecordingStateView` with animated `WaveformView` (from WaveformView.swift) and live partial transcript. Transcribing state shows `TranscribingStateView` with a `ProgressView` spinner and partial text (or "Transcribing..." placeholder). Error state shows `ErrorStateView` with warning icon and message.
+- `Sources/McWhisper/WaveformView.swift` — `WaveformView` struct using SwiftUI `Canvas` to draw 30 vertical bars centered horizontally. Bar heights are proportional to values in a `[Float]` ring buffer; a `minimumLevel` floor (0.05) ensures bars are always visible. Static constants: `barCount` (30), `barSpacing` (2), `barCornerRadius` (1.5), `minimumLevel` (0.05). Also contains `WaveformBar` (single animated bar view with `scale` computed property using the shared minimum floor).
+- `Sources/McWhisper/RecordingWindowController.swift` — `RecordingWindowController` class (`@MainActor`) managing a floating `NSPanel` for recording state display. Panel uses `.nonactivatingPanel` style mask so it does not steal focus. Window level is `.floating`, `hidesOnDeactivate` is false, and collection behavior includes `.canJoinAllSpaces` and `.fullScreenAuxiliary`. `show(coordinator:)` creates the panel with a fade-in animation (alphaValue 0→1) and restores last window position from `AppSettings` (or centers on screen if no saved position). `hide()` saves the current position to `AppSettings`, fades out (alphaValue 1→0), then removes the panel. Static `fadeDuration` (0.2s). `savePosition(_:)` and `restorePosition(_:)` handle position persistence. `isVisible` computed property, and exposes the `panel` for content configuration. Titlebar is transparent and hidden.
+- `Sources/McWhisper/RecordingCoordinator.swift` — `RecordingCoordinator` class (`@MainActor ObservableObject`) orchestrating the push-to-talk flow. Owns `HotkeyManager`, `AudioEngine`, `WhisperKitEngine`, `HistoryStore`, and `RecordingWindowController`. `start()` subscribes to `audioEngine.$audioLevel` via Combine to fill a rolling buffer (`@Published levelSamples: [Float]`, size 30 via `levelBufferSize`) wrapped in `withAnimation(.linear(duration: 0.05))` for smooth waveform transitions, wires hotkey callbacks, and begins listening (requests Accessibility if needed), pre-loads the Whisper model. On key-down resets the level buffer, starts recording via `AudioEngine`, and shows the floating panel with `RecordingView`; on key-up stops recording, runs `transcribeStreaming` for partial results, saves a `TranscriptionRecord` to history, pastes the final text into the active app via `NSPasteboard` + simulated Cmd+V (`CGEvent`), and hides the panel. Cleans up the temp WAV file after transcription. Exposes `@Published state: State` (idle/recording/transcribing/error), `@Published partialText: String`, and `@Published levelSamples: [Float]`.
+- `Sources/McWhisper/ModelCatalog.swift` — `ModelInfo` struct (Identifiable, Equatable) with id, displayName, sizeLabel, isBundled fields. `ModelCatalog` enum listing all available Whisper models with `openai_whisper-base` as the single bundled default. Provides `bundledModelID`, `bundledModel`, `availableModels`, `downloadableModels`, and `model(for:)` lookup.
+- `Tests/McWhisperTests/TranscriptionServiceTests.swift` — Swift Testing suite verifying WhisperKitEngine initial state, modelVariant extraction (standard IDs and fallback), transcribe-without-model error, transcribeStreaming-without-model error (nil and "auto" language), TranscriptionError equatability, and ObservableObject conformance. Hardware/model-dependent tests excluded.
+- `Tests/McWhisperTests/McWhisperTests.swift` — Swift Testing suite verifying the target compiles.
+- `Tests/McWhisperTests/AppSettingsTests.swift` — Swift Testing suite verifying `AppSettings` defaults (model ID, hotkey, mode, language, silence threshold), key uniqueness (including panel position keys), and reset behavior.
+- `Tests/McWhisperTests/BundleTests.swift` — Swift Testing suite verifying `run.sh` exists, is executable, and contains required build flags/plist keys.
+- `Tests/McWhisperTests/TranscriptionModeTests.swift` — Swift Testing suite verifying built-in mode count/uniqueness, custom mode name+prompt storage, JSON round-trip, UserDefaults persistence, save filtering, `allModes()` composition, and `from(id:)` lookup.
+- `Tests/McWhisperTests/HistoryStoreTests.swift` — Swift Testing suite verifying TranscriptionRecord UUID stability, JSON round-trip, and HistoryStore add/persist/delete/clearAll/empty/defaultDirectory behavior using temp directories.
+- `Sources/McWhisper/MicrophonePermission.swift` — `MicrophonePermission` enum with static `status` (returns `AVAuthorizationStatus` for audio) and async `request()` (calls `AVCaptureDevice.requestAccess(for: .audio)`, returns `Bool`).
+- `Tests/McWhisperTests/MicrophonePermissionTests.swift` — Swift Testing suite verifying `MicrophonePermission.status` returns a valid `AVAuthorizationStatus`.
+- `Tests/McWhisperTests/ModelCatalogTests.swift` — Swift Testing suite verifying bundled model ID matches AppSettings default, exactly one model is bundled, bundled model property, downloadable models exclude bundled, unique IDs, lookup by ID (found and not found), metadata non-empty, and ModelInfo equatable conformance.
+- `Tests/McWhisperTests/HotkeyManagerTests.swift` — Swift Testing suite verifying HotkeyManager initial state (isKeyDown false, callbacks nil), keyCode/modifiers read from AppSettings, default hotkey is Option+Space, HotkeyManagerError equality, stop() resets state and is idempotent, ObservableObject conformance, and callback set/clear. Hardware-dependent tests (start with Accessibility) excluded.
+- `Tests/McWhisperTests/RecordingViewTests.swift` — Swift Testing suite verifying RecordingView builds with coordinator, WaveformBar scale-from-level with floor, minimum level non-zero, RecordingStateView/TranscribingStateView/ErrorStateView body construction with and without partial text, WaveformView bar count from levels array, empty levels handling, Canvas WaveformView static constants (barCount, minimumLevel, barSpacing, barCornerRadius), WaveformBar shared minimum floor, and fewer/exact-30 level counts.
+- `Tests/McWhisperTests/RecordingWindowControllerTests.swift` — Swift Testing suite verifying RecordingWindowController initial state (no panel, not visible), show() creates panel, panel style (.nonactivatingPanel), floating level, hidesOnDeactivate false, collection behavior, hide() initiates panel removal, show() idempotency, hide() safety without show(), transparent titlebar, fade-in alpha, fadeDuration bounds, savePosition persistence to AppSettings, and restorePosition from AppSettings. All tests are @MainActor.
+- `Tests/McWhisperTests/RecordingCoordinatorTests.swift` — Swift Testing suite verifying RecordingCoordinator initial state (idle, empty partialText, zeroed levelSamples of correct size), State enum equality, sub-component ownership (including windowController), ObservableObject conformance, and stop() safety without start(). All tests are @MainActor. Hardware-dependent tests (hotkey + mic) excluded.
+- `Tests/McWhisperTests/AudioEngineTests.swift` — Swift Testing suite verifying AudioEngine initial state, stopRecording-without-start error, AudioEngineError equality/messages, whisperFormat constants (16 kHz, mono, Int16), format produces a valid AVAudioFile, audioLevel defaults to zero, speechDetected defaults to false, VAD config constants (frame duration, threshold, hangover), ObservableObject conformance, and `trimSilence` behavior (strips leading silence, trailing silence, both sides, preserves interior silence, no-op when no edge silence, produces empty file for all-silent input). Hardware-dependent tests (start/stop with real mic) are excluded.
+- `Tests/McWhisperTests/AppBundleTests.swift` — Swift Testing suite verifying the built `McWhisper.app` bundle: directory structure, executable binary, and Info.plist key values.
+- `run.sh` — Build and launch script. Builds release binary (`swift build -c release --disable-sandbox`), assembles `McWhisper.app` bundle with `Info.plist` (LSUIElement=YES, NSMicrophoneUsageDescription, bundle ID `com.mcwhisper.app`), ad-hoc codesigns, and launches the app.
