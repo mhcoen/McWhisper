@@ -16,7 +16,7 @@ final class SettingsWindowController {
 
         let view = SettingsView()
         let hostingView = NSHostingView(rootView: view)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 400, height: 300)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 520, height: 400)
 
         let window = NSWindow(
             contentRect: hostingView.frame,
@@ -31,18 +31,5 @@ final class SettingsWindowController {
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
         self.window = window
-    }
-}
-
-struct SettingsView: View {
-    var body: some View {
-        VStack {
-            Text("Settings")
-                .font(.title2)
-                .padding()
-            Text("Settings will be available in a future update.")
-                .foregroundStyle(.secondary)
-        }
-        .frame(minWidth: 300, minHeight: 200)
     }
 }
