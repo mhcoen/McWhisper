@@ -60,7 +60,7 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Show flat bars when not recording; pulse gently with a sine wave to indicate standby
 
 - [ ] Implement transcription mode post-processing
-  - [ ] Create `ModeProcessor.swift`; for Phase 1 apply simple rule-based formatting per mode (Voice: raw text; Message: ensure sentence case and punctuation; Email: add greeting/sign-off placeholders; Note: bullet-point line breaks; Meeting: paragraph breaks on pauses)
+  - [x] Create `ModeProcessor.swift`; for Phase 1 apply simple rule-based formatting per mode (Voice: raw text; Message: ensure sentence case and punctuation; Email: add greeting/sign-off placeholders; Note: bullet-point line breaks; Meeting: paragraph breaks on pauses)
   - [ ] Expose `process(rawText:mode:) -> String`; hook into the transcription pipeline between raw result and paste
   - [ ] Display both raw and processed text in `RecordingView` with a toggle
 
