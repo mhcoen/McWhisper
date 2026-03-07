@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import AppKit
 @testable import McWhisper
 
 @Suite("PasteManager")

@@ -18,12 +18,7 @@ struct McWhisperApp: App {
 
     var body: some Scene {
         MenuBarExtra("McWhisper", systemImage: "waveform") {
-            StatusView(coordinator: coordinator)
-            Divider()
-            Button("Quit McWhisper") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q")
+            MenuBarView(coordinator: coordinator)
         }
     }
 }
