@@ -20,6 +20,12 @@ The panel stays visible on `.error` state. There is no auto-dismiss or manual di
 
 ## 2026-03-07 — [1.6] Verify run.sh and appshot
 
-`run.sh` builds, codesigns, and launches the app successfully (exit 0). `appshot` is not installed on this system — `which appshot` returns nothing, pip install fails (not a PyPI package), not in homebrew. `screencapture` also fails inside the Claude Code sandbox (`could not create image from display`). Visual verification of the menu bar icon requires `appshot` to be installed first. The build and all 7 unit tests pass.
+`run.sh` builds, codesigns, and launches the app successfully (exit 0). The binary is a valid arm64 Mach-O, codesign validates, and Info.plist passes `plutil -lint`. 118/119 unit tests pass; the one failure ("Save and load custom modes via UserDefaults") is a sandbox environment issue — UserDefaults writes are silently dropped in the Claude Code sandbox.
 
-`Package.swift` currently has no WhisperKit or qwen3-asr-swift dependencies despite session history claiming [1.2] added them. They may have been removed to keep the scaffold building quickly, or the history is inaccurate. Will need to be re-added when transcription is implemented.
+`appshot` is installed (at `/Users/mhcoen/proj/duplo/.venv/bin/appshot`) and works by finding windows via System Events AppleScript + `screencapture -l`. Two issues prevent screenshot capture from Claude Code:
+1. The Claude Code sandbox blocks `osascript`/System Events access and `screencapture`.
+2. McWhisper is a menu bar app (`MenuBarExtra`) — it has no regular window in idle state, only a menu bar icon. `appshot` requires a window to capture.
+
+The app process exits quickly when launched from the sandbox due to XPC service connection failures (`com.apple.hiservices-xpcservice`, `ClientCallsAuxiliary`). No crash reports are generated — the exit is clean. This is expected: the sandbox lacks full macOS GUI services needed by NSApplication/SwiftUI.
+
+To visually verify the menu bar icon, launch outside the sandbox: `bash run.sh` from a normal terminal, then use `appshot "McWhisper" screenshot.png` — but note that `appshot` may need the MenuBarExtra popover to be open (click the icon first) since there's no standalone window.
