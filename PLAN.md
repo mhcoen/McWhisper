@@ -12,13 +12,13 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
 
 ---
 
-- [ ] Scaffold SPM project and menu bar app shell
+- [x] Scaffold SPM project and menu bar app shell
   - [x] Create `Package.swift` targeting macOS 14, Swift 5.10, single executable target `McWhisper`
   - [x] Add WhisperKit and qwen3-asr-swift as package dependencies
   - [x] Create `Sources/McWhisper/McWhisperApp.swift` with `@main` App struct; set activation policy to `.accessory` (no Dock icon) and include the `NSApplication.shared.setActivationPolicy(.regular)` workaround for SPM SwiftUI in `init()`
   - [x] Add a bare `MenuBarExtra` with a placeholder "McWhisper" label and a Quit button so the app is launchable
   - [x] Create `run.sh`: builds with `swift build -c release --disable-sandbox`, assembles `McWhisper.app` bundle with correct `Info.plist` (LSUIElement=YES, NSMicrophoneUsageDescription, bundle ID `com.mcwhisper.app`), ad-hoc codesigns with `codesign --deep -s -`, launches the app, and exits 0
-  - [ ] Verify `run.sh` succeeds and app appears in menu bar; capture screenshot with `appshot`
+  - [x] Verify `run.sh` succeeds and app appears in menu bar; capture screenshot with `appshot`
 
 - [x] Define app-wide data model and settings store
   - [x] Create `AppSettings.swift` using `@AppStorage` / `UserDefaults` for: selected model ID, push-to-talk hotkey keycode + modifiers, selected mode, language selection ("auto" default)
