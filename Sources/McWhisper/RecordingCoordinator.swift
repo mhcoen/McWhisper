@@ -126,16 +126,17 @@ final class RecordingCoordinator: ObservableObject {
             }
 
             let mode = TranscriptionMode.from(id: AppSettings.selectedMode) ?? .voice
+            let processed = ModeProcessor.process(text, mode: mode)
             let record = TranscriptionRecord(
                 duration: duration,
                 rawText: text,
-                processedText: text,
+                processedText: processed,
                 mode: mode,
                 modelID: AppSettings.selectedModelID
             )
             historyStore.add(record)
 
-            pasteText(text)
+            pasteText(processed)
             windowController.hide()
             state = .idle
             partialText = ""
