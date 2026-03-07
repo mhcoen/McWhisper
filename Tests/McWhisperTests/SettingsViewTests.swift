@@ -116,7 +116,7 @@ struct SettingsViewTests {
     @Test("ModelRow builds with selected state")
     func modelRowSelected() {
         let model = ModelCatalog.bundledModel
-        let view = ModelRow(model: model, isSelected: true)
+        let view = ModelRow(model: model, isSelected: true, downloadState: .downloaded)
         _ = view.body
     }
 
@@ -124,7 +124,7 @@ struct SettingsViewTests {
     @Test("ModelRow builds with unselected state")
     func modelRowUnselected() {
         let model = ModelCatalog.bundledModel
-        let view = ModelRow(model: model, isSelected: false)
+        let view = ModelRow(model: model, isSelected: false, downloadState: .notDownloaded)
         _ = view.body
     }
 

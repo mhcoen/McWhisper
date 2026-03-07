@@ -268,6 +268,8 @@ final class HotkeyRecorderNSView: NSView {
 
 struct ModelsSettingsTab: View {
     @AppStorage(AppSettings.Keys.selectedModelID) private var selectedModelID: String = AppSettings.defaultModelID
+    @StateObject private var downloader = ModelDownloader()
+    @State private var downloadTasks: [String: Task<Void, Error>] = [:]
 
     var body: some View {
         Form {
@@ -282,22 +284,49 @@ struct ModelsSettingsTab: View {
 
             Section("Available Models") {
                 ForEach(ModelCatalog.availableModels) { model in
-                    ModelRow(model: model, isSelected: model.id == selectedModelID)
+                    ModelRow(
+                        model: model,
+                        isSelected: model.id == selectedModelID,
+                        downloadState: downloader.state(for: model.id),
+                        onDownload: { startDownload(model.id) },
+                        onCancel: { cancelDownload(model.id) },
+                        onDelete: { deleteModel(model.id) }
+                    )
                 }
             }
         }
         .formStyle(.grouped)
         .padding()
     }
+
+    private func startDownload(_ modelID: String) {
+        let task = Task {
+            try await downloader.downloadModel(modelID)
+        }
+        downloadTasks[modelID] = task
+    }
+
+    private func cancelDownload(_ modelID: String) {
+        downloadTasks[modelID]?.cancel()
+        downloadTasks[modelID] = nil
+    }
+
+    private func deleteModel(_ modelID: String) {
+        try? downloader.deleteModel(modelID)
+    }
 }
 
 struct ModelRow: View {
     let model: ModelInfo
     let isSelected: Bool
+    var downloadState: ModelDownloadState = .notDownloaded
+    var onDownload: (() -> Void)?
+    var onCancel: (() -> Void)?
+    var onDelete: (() -> Void)?
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(model.displayName)
                         .fontWeight(isSelected ? .semibold : .regular)
@@ -313,12 +342,51 @@ struct ModelRow: View {
                 Text(model.sizeLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if case .downloading(let progress) = downloadState {
+                    ProgressView(value: progress)
+                        .progressViewStyle(.linear)
+                    Text("\(Int(progress * 100))%")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if case .failed(let message) = downloadState {
+                    Text(message)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                }
             }
             Spacer()
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.accentColor)
             }
+            if !model.isBundled {
+                modelActionButton
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var modelActionButton: some View {
+        switch downloadState {
+        case .notDownloaded, .failed:
+            Button { onDownload?() } label: {
+                Image(systemName: "arrow.down.circle")
+            }
+            .buttonStyle(.borderless)
+            .help("Download model")
+        case .downloading:
+            Button { onCancel?() } label: {
+                Image(systemName: "xmark.circle")
+            }
+            .buttonStyle(.borderless)
+            .help("Cancel download")
+        case .downloaded:
+            Button { onDelete?() } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .help("Delete model")
         }
     }
 }
