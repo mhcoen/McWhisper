@@ -84,12 +84,26 @@ final class HotkeyManager: ObservableObject {
         isKeyDown = false
     }
 
+    /// Whether the configured hotkey is a modifier-only key (Command, Option, etc.).
+    var isModifierOnlyKey: Bool {
+        // Keycodes for modifier keys: 54=Right Cmd, 55=Left Cmd,
+        // 56=Left Shift, 60=Right Shift, 58=Left Option, 61=Right Option,
+        // 59=Left Control, 62=Right Control, 57=Caps Lock, 63=Fn
+        let modifierKeyCodes: Set<Int> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
+        return modifierKeyCodes.contains(keyCode)
+    }
+
     /// Check whether a CGEvent matches the configured hotkey.
     func matches(_ event: CGEvent) -> Bool {
         let eventKeyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
         guard eventKeyCode == keyCode else { return false }
 
-        // Mask to only the modifier bits we care about (shift, control, option, command).
+        if isModifierOnlyKey {
+            // For modifier-only keys, just check keycode match (already done above).
+            return true
+        }
+
+        // For regular keys, also check that the required modifier flags are held.
         let relevantMask: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand]
         let eventMods = event.flags.intersection(relevantMask).rawValue
         return eventMods == UInt64(modifiers)
@@ -120,6 +134,44 @@ private func hotkeyCallback(
         break
     }
 
+    if manager.isModifierOnlyKey {
+        // Modifier-only hotkey: detect press/release via flagsChanged only.
+        guard type == .flagsChanged else {
+            return Unmanaged.passUnretained(event)
+        }
+        let eventKeyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+        guard eventKeyCode == manager.keyCode else {
+            return Unmanaged.passUnretained(event)
+        }
+
+        // Determine if the modifier is now pressed or released by checking
+        // whether the corresponding flag is set.
+        let modifierFlag: CGEventFlags
+        switch manager.keyCode {
+        case 54, 55: modifierFlag = .maskCommand
+        case 56, 60: modifierFlag = .maskShift
+        case 58, 61: modifierFlag = .maskAlternate
+        case 59, 62: modifierFlag = .maskControl
+        default: return Unmanaged.passUnretained(event)
+        }
+
+        let flagIsSet = event.flags.contains(modifierFlag)
+
+        if flagIsSet && !manager.isKeyDown {
+            DispatchQueue.main.async {
+                manager.isKeyDown = true
+                manager.onKeyDown?()
+            }
+        } else if !flagIsSet && manager.isKeyDown {
+            DispatchQueue.main.async {
+                manager.isKeyDown = false
+                manager.onKeyUp?()
+            }
+        }
+        return Unmanaged.passUnretained(event)
+    }
+
+    // Regular key hotkey: detect via keyDown/keyUp events.
     guard manager.matches(event) else {
         return Unmanaged.passUnretained(event)
     }
@@ -132,7 +184,6 @@ private func hotkeyCallback(
                 manager.onKeyDown?()
             }
         }
-        // Swallow the event so it doesn't reach the active app.
         return nil
 
     case .keyUp:
@@ -145,8 +196,7 @@ private func hotkeyCallback(
         return nil
 
     case .flagsChanged:
-        // For modifier-only keys or when the modifier is released before the key,
-        // detect key-up via flags change.
+        // Regular key: detect modifier release while key was held.
         let relevantMask: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand]
         let currentMods = event.flags.intersection(relevantMask).rawValue
         let expectedMods = UInt64(manager.modifiers)

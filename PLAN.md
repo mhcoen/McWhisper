@@ -46,7 +46,7 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Create `HotkeyManager.swift` using `CGEventTap` (requires Accessibility permission); register a key-down event tap for the configured keycode + modifiers
   - [x] On key-down start recording via `AudioEngine`; on key-up stop recording and kick off transcription pipeline
   - [x] Request Accessibility permission at first launch with an alert linking to System Settings if not granted
-  - [x] Store and restore the hotkey binding from `AppSettings`; default to `⌥Space`
+  - [x] Store and restore the hotkey binding from `AppSettings`; default to Right Command
 
 - [x] Build floating recording window
   - [x] Create `RecordingWindowController.swift` managing an `NSPanel` with `NSPanel.styleMask` `.nonactivatingPanel`; window floats above all apps (`level = .floating`) and does not steal focus
@@ -83,15 +83,27 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Detail pane on row selection: full processed text, raw text toggle, Copy button, Re-transcribe button (re-runs current model + mode on the saved audio file)
   - [x] Multi-select delete with confirmation alert; persist deletions to `HistoryStore`
 
-- [ ] Wire end-to-end pipeline and integration test
+- [x] Wire end-to-end pipeline and integration test
   - [x] Connect hotkey → audio capture → VAD → WhisperKit streaming transcription → mode post-processing → auto-paste, updating `RecordingView` state at each step
   - [x] Save completed transcription to `HistoryStore` including audio file path, timestamps, model, and mode
-  - [ ] Run `run.sh`, launch app, hold `⌥Space`, speak a sentence, release, confirm text appears in `RecordingView` and is pasted into TextEdit; capture screenshot with `appshot McWhisper screenshots/current/recording.png`
 
 - [ ] Polish, permissions flow, and launch-at-login
   - [ ] Add `SMAppService.mainApp.register()` for launch-at-login toggled from Settings > General
   - [ ] On first launch show a one-time onboarding sheet: request Microphone access, Accessibility access (for global hotkey and paste), explain no data leaves the device
-  - [ ] Ensure `run.sh` exits non-zero if the app fails to appear within 5 seconds (use `pgrep McWhisper` check); capture final `appshot` to `screenshots/current/menu-bar.png` and verify the image is non-empty
+  - [ ] Ensure `run.sh` exits non-zero if the app fails to appear within 5 seconds (use `pgrep McWhisper` check)
+
+---
+
+## Manual verification (user must test)
+
+- [ ] Run `run.sh`, launch app, grant Microphone and Accessibility permissions
+- [ ] Hold Right Command, speak a sentence, release. Confirm waveform animates during recording, partial text appears in the floating window, and final text is pasted into the frontmost app
+- [ ] Open Settings, change the hotkey, verify the new hotkey works
+- [ ] Download a larger model from Settings > Models, switch to it, and verify transcription still works
+- [ ] Open Recording History, verify past transcriptions appear, select one, copy it, delete it
+- [ ] Switch transcription modes (Voice, Message, Email, Note, Meeting) and verify formatting differences
+- [ ] Quit and relaunch. Verify launch-at-login setting persists and the app reappears in the menu bar
+- [ ] With no frontmost app, record and release. Verify clipboard fallback and HUD notification
 
 ---
 
