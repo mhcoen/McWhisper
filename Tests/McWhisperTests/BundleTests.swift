@@ -37,4 +37,13 @@ struct BundleTests {
         let contents = try String(contentsOfFile: path, encoding: .utf8)
         #expect(contents.contains("set -e"))
     }
+
+    @Test("run.sh checks for app with pgrep and exits non-zero on failure")
+    func runScriptPgrepCheck() throws {
+        let path = "\(projectDir)/run.sh"
+        let contents = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(contents.contains("pgrep"))
+        #expect(contents.contains("McWhisper"))
+        #expect(contents.contains("exit 1"))
+    }
 }

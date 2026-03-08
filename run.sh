@@ -63,4 +63,14 @@ echo "Launching McWhisper.app..."
 "$MACOS_DIR/McWhisper" &
 disown
 
-echo "Done."
+# Wait up to 5 seconds for the app to appear
+for i in 1 2 3 4 5; do
+    if pgrep -x McWhisper > /dev/null 2>&1; then
+        echo "Done."
+        exit 0
+    fi
+    sleep 1
+done
+
+echo "ERROR: McWhisper failed to appear within 5 seconds." >&2
+exit 1
