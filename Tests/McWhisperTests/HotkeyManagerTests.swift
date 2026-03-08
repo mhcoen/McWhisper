@@ -84,4 +84,68 @@ struct HotkeyManagerTests {
         manager.onKeyDown = nil
         #expect(manager.onKeyDown == nil)
     }
+
+    // MARK: - Dynamic hotkey change
+
+    @Suite("Hotkey Settings Changes", .serialized)
+    struct HotkeySettingsChangeTests {
+        @Test("keyCode reflects AppSettings changes dynamically")
+        func keyCodeReflectsSettingsChange() {
+            let manager = HotkeyManager()
+            let original = AppSettings.hotkeyKeyCode
+            defer { AppSettings.hotkeyKeyCode = original }
+
+            AppSettings.hotkeyKeyCode = 56
+            #expect(manager.keyCode == 56)
+
+            AppSettings.hotkeyKeyCode = 49
+            #expect(manager.keyCode == 49)
+        }
+
+        @Test("modifiers reflects AppSettings changes dynamically")
+        func modifiersReflectsSettingsChange() {
+            let manager = HotkeyManager()
+            let original = AppSettings.hotkeyModifiers
+            defer { AppSettings.hotkeyModifiers = original }
+
+            let cmdMod = Int(NSEvent.ModifierFlags.command.rawValue)
+            AppSettings.hotkeyModifiers = cmdMod
+            #expect(manager.modifiers == cmdMod)
+        }
+
+        @Test("isModifierOnlyKey updates when hotkey changes to regular key")
+        func isModifierOnlyKeyUpdatesOnChange() {
+            let manager = HotkeyManager()
+            let originalKeyCode = AppSettings.hotkeyKeyCode
+            defer { AppSettings.hotkeyKeyCode = originalKeyCode }
+
+            #expect(manager.isModifierOnlyKey)
+
+            AppSettings.hotkeyKeyCode = 49
+            #expect(!manager.isModifierOnlyKey)
+
+            AppSettings.hotkeyKeyCode = 58
+            #expect(manager.isModifierOnlyKey)
+        }
+
+        @Test("matches checks keycode from current settings")
+        func matchesUsesCurrentSettings() {
+            let manager = HotkeyManager()
+            let originalKeyCode = AppSettings.hotkeyKeyCode
+            let originalMods = AppSettings.hotkeyModifiers
+            defer {
+                AppSettings.hotkeyKeyCode = originalKeyCode
+                AppSettings.hotkeyModifiers = originalMods
+            }
+
+            AppSettings.hotkeyKeyCode = 54
+            AppSettings.hotkeyModifiers = 0
+            #expect(manager.keyCode == 54)
+            #expect(manager.isModifierOnlyKey)
+
+            AppSettings.hotkeyKeyCode = 56
+            #expect(manager.keyCode == 56)
+            #expect(manager.isModifierOnlyKey)
+        }
+    }
 }
