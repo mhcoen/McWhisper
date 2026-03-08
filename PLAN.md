@@ -88,7 +88,7 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Save completed transcription to `HistoryStore` including audio file path, timestamps, model, and mode
 
 - [ ] Polish, permissions flow, and launch-at-login
-  - [ ] Add `SMAppService.mainApp.register()` for launch-at-login toggled from Settings > General
+  - [x] Add `SMAppService.mainApp.register()` for launch-at-login toggled from Settings > General
   - [ ] On first launch show a one-time onboarding sheet: request Microphone access, Accessibility access (for global hotkey and paste), explain no data leaves the device
   - [ ] Ensure `run.sh` exits non-zero if the app fails to appear within 5 seconds (use `pgrep McWhisper` check)
 
