@@ -253,6 +253,49 @@ struct HistoryStoreTests {
         #expect(store.records.count == 1)
     }
 
+    @Test("Single delete persists to disk")
+    func deleteRecordPersists() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        let r1 = makeRecord(rawText: "keep")
+        let r2 = makeRecord(rawText: "remove")
+        store.add(r1)
+        store.add(r2)
+        store.deleteRecord(id: r2.id)
+
+        let reloaded = HistoryStore(directory: dir)
+        #expect(reloaded.records.count == 1)
+        #expect(reloaded.records[0] == r1)
+    }
+
+    @Test("Single delete with unknown ID is safe")
+    func deleteRecordUnknownID() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        store.add(makeRecord())
+        store.deleteRecord(id: UUID())
+        #expect(store.records.count == 1)
+    }
+
+    @Test("Records preserve insertion order for retrieval")
+    func recordsPreserveOrder() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        let r1 = makeRecord(rawText: "first")
+        let r2 = makeRecord(rawText: "second")
+        let r3 = makeRecord(rawText: "third")
+        store.add(r1)
+        store.add(r2)
+        store.add(r3)
+        #expect(store.records.map(\.rawText) == ["first", "second", "third"])
+    }
+
     // MARK: - TranscriptionRecord audioFileName
 
     @Test("Record audioFileName defaults to nil")

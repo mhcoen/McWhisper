@@ -227,4 +227,87 @@ struct MenuBarViewTests {
         // Just verify the API compiles - don't actually show a window
         let _ = HistoryWindowController.shared
     }
+
+    // MARK: - History flow: records appear, copy, delete
+
+    @MainActor
+    @Test("HistoryView shows records from store")
+    func historyViewShowsRecords() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = HistoryStore(directory: dir)
+        let r1 = TranscriptionRecord(
+            duration: 3.0, rawText: "first recording",
+            processedText: "First recording.", mode: .voice, modelID: "test"
+        )
+        let r2 = TranscriptionRecord(
+            duration: 5.0, rawText: "second recording",
+            processedText: "Second recording.", mode: .message, modelID: "test"
+        )
+        store.add(r1)
+        store.add(r2)
+        #expect(store.records.count == 2)
+        let view = HistoryView(historyStore: store)
+        _ = view.body
+    }
+
+    @Test("Copy display text resolves to processed text when available")
+    func copyDisplayTextProcessed() {
+        let record = TranscriptionRecord(
+            duration: 5, rawText: "raw version",
+            processedText: "Processed version.", mode: .voice, modelID: "test"
+        )
+        let displayText = record.processedText.isEmpty ? record.rawText : record.processedText
+        #expect(displayText == "Processed version.")
+    }
+
+    @Test("Copy display text resolves to raw text when processed is empty")
+    func copyDisplayTextRaw() {
+        let record = TranscriptionRecord(
+            duration: 5, rawText: "raw only text",
+            processedText: "", mode: .voice, modelID: "test"
+        )
+        let displayText = record.processedText.isEmpty ? record.rawText : record.processedText
+        #expect(displayText == "raw only text")
+    }
+
+    @Test("Delete record removes it from store")
+    func deleteRecordFromStore() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = HistoryStore(directory: dir)
+        let record = TranscriptionRecord(
+            duration: 2.0, rawText: "to delete",
+            processedText: "To delete.", mode: .voice, modelID: "test"
+        )
+        store.add(record)
+        #expect(store.records.count == 1)
+
+        store.deleteRecords(ids: [record.id])
+        #expect(store.records.isEmpty)
+    }
+
+    @MainActor
+    @Test("HistoryView builds correctly after record deletion")
+    func historyViewAfterDeletion() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = HistoryStore(directory: dir)
+        let r1 = TranscriptionRecord(
+            duration: 1.0, rawText: "keep",
+            processedText: "Keep.", mode: .voice, modelID: "test"
+        )
+        let r2 = TranscriptionRecord(
+            duration: 1.0, rawText: "delete",
+            processedText: "Delete.", mode: .voice, modelID: "test"
+        )
+        store.add(r1)
+        store.add(r2)
+        store.deleteRecords(ids: [r2.id])
+        #expect(store.records.count == 1)
+        #expect(store.records[0] == r1)
+        let view = HistoryView(historyStore: store)
+        _ = view.body
+    }
+
 }
