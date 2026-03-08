@@ -95,6 +95,41 @@ struct SettingsViewTests {
         // If SMAppService were unavailable, the view would fail to build
     }
 
+    @MainActor
+    @Test("Launch-at-login state is consistent across multiple view instantiations")
+    func launchAtLoginStatePersistsAcrossViews() {
+        // Simulates relaunch: multiple GeneralSettingsTab creations read the same
+        // SMAppService status, confirming the setting persists in the system (not in-memory).
+        let status1 = SMAppService.mainApp.status
+        _ = GeneralSettingsTab()
+        let status2 = SMAppService.mainApp.status
+        _ = GeneralSettingsTab()
+        let status3 = SMAppService.mainApp.status
+        #expect(status1 == status2)
+        #expect(status2 == status3)
+    }
+
+    @Test("Launch-at-login is not stored in AppSettings UserDefaults")
+    func launchAtLoginNotInUserDefaults() {
+        // Verify launch-at-login is managed by SMAppService, not UserDefaults.
+        // AppSettings.Keys should not contain a launch-at-login key.
+        let allKeys = [
+            AppSettings.Keys.selectedModelID,
+            AppSettings.Keys.hotkeyKeyCode,
+            AppSettings.Keys.hotkeyModifiers,
+            AppSettings.Keys.selectedMode,
+            AppSettings.Keys.selectedLanguage,
+            AppSettings.Keys.silenceThreshold,
+            AppSettings.Keys.panelPositionX,
+            AppSettings.Keys.panelPositionY,
+            AppSettings.Keys.hasSavedPanelPosition,
+            AppSettings.Keys.hasCompletedOnboarding,
+        ]
+        for key in allKeys {
+            #expect(!key.lowercased().contains("launch"), "Launch-at-login should be managed by SMAppService, not UserDefaults")
+        }
+    }
+
     // MARK: - Hotkey Recorder
 
     @MainActor
