@@ -304,7 +304,7 @@ struct ModelsSettingsTab: View {
     @AppStorage(AppSettings.Keys.selectedModelID) private var selectedModelID: String = AppSettings.defaultModelID
     @StateObject private var downloader = ModelDownloader()
     @State private var downloadTasks: [String: Task<Void, Error>] = [:]
-    @State private var previousModelID: String = AppSettings.defaultModelID
+    @State private var previousModelID: String = AppSettings.selectedModelID
 
     var body: some View {
         Form {

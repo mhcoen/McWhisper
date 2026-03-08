@@ -54,14 +54,14 @@ final class RecordingWindowController {
         guard let currentPanel = panel else { return }
 
         savePosition(currentPanel)
+        panel = nil
 
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = Self.fadeDuration
             currentPanel.animator().alphaValue = 0
         }, completionHandler: {
-            Task { @MainActor [weak self] in
+            Task { @MainActor in
                 currentPanel.orderOut(nil)
-                self?.panel = nil
             }
         })
     }
