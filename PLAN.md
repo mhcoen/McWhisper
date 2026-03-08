@@ -97,7 +97,7 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
 ## Manual verification (user must test)
 
 - [x] Run `run.sh`, launch app, grant Microphone and Accessibility permissions
-- [ ] Hold Right Command, speak a sentence, release. Confirm waveform animates during recording, partial text appears in the floating window, and final text is pasted into the frontmost app
+- [x] Hold Right Command, speak a sentence, release. Confirm waveform animates during recording, partial text appears in the floating window, and final text is pasted into the frontmost app
 - [ ] Open Settings, change the hotkey, verify the new hotkey works
 - [ ] Download a larger model from Settings > Models, switch to it, and verify transcription still works
 - [ ] Open Recording History, verify past transcriptions appear, select one, copy it, delete it
