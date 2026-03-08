@@ -7,16 +7,16 @@ final class HistoryWindowController {
 
     private var window: NSWindow?
 
-    func show(historyStore: HistoryStore) {
+    func show(historyStore: HistoryStore, onRetranscribe: ((TranscriptionRecord) -> Void)? = nil) {
         if let window, window.isVisible {
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
             return
         }
 
-        let view = HistoryView(historyStore: historyStore)
+        let view = HistoryView(historyStore: historyStore, onRetranscribe: onRetranscribe)
         let hostingView = NSHostingView(rootView: view)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 480, height: 400)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 600, height: 400)
 
         let window = NSWindow(
             contentRect: hostingView.frame,

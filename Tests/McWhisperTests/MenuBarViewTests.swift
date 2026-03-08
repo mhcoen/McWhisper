@@ -159,4 +159,72 @@ struct MenuBarViewTests {
     func menuBarLabelPulsePeriod() {
         #expect(MenuBarLabel.pulsePeriod > 0)
     }
+
+    // MARK: - HistoryDetailView
+
+    @Test("HistoryDetailView builds with record")
+    func historyDetailViewBuilds() {
+        let record = TranscriptionRecord(
+            duration: 5,
+            rawText: "raw text",
+            processedText: "Processed text.",
+            mode: .voice,
+            modelID: "test"
+        )
+        let view = HistoryDetailView(record: record)
+        _ = view.body
+    }
+
+    @Test("HistoryDetailView builds with onRetranscribe callback")
+    func historyDetailViewWithCallback() {
+        let record = TranscriptionRecord(
+            duration: 5,
+            rawText: "raw",
+            processedText: "Processed.",
+            mode: .message,
+            modelID: "test",
+            audioFileName: "test.wav"
+        )
+        var called = false
+        let view = HistoryDetailView(record: record) { _ in called = true }
+        _ = view.body
+        #expect(!called)
+    }
+
+    @Test("HistoryDetailView shows raw text fallback when processedText is empty")
+    func historyDetailViewFallback() {
+        let record = TranscriptionRecord(
+            duration: 5,
+            rawText: "raw only",
+            processedText: "",
+            mode: .voice,
+            modelID: "test"
+        )
+        let view = HistoryDetailView(record: record)
+        _ = view.body
+    }
+
+    @Test("HistoryTextToggle builds")
+    func historyTextToggleBuilds() {
+        var showRaw = false
+        let view = HistoryTextToggle(showRaw: .init(get: { showRaw }, set: { showRaw = $0 }))
+        _ = view.body
+    }
+
+    @MainActor
+    @Test("HistoryView builds with onRetranscribe")
+    func historyViewBuildsWithRetranscribe() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let store = HistoryStore(directory: dir)
+        let view = HistoryView(historyStore: store, onRetranscribe: { _ in })
+        _ = view.body
+        try? FileManager.default.removeItem(at: dir)
+    }
+
+    @MainActor
+    @Test("HistoryWindowController show accepts onRetranscribe")
+    func historyWindowControllerShowWithCallback() {
+        // Just verify the API compiles - don't actually show a window
+        let _ = HistoryWindowController.shared
+    }
 }

@@ -21,6 +21,12 @@ final class HistoryStore {
         save()
     }
 
+    func updateRecord(_ record: TranscriptionRecord) {
+        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+        records[index] = record
+        save()
+    }
+
     func deleteRecord(id: UUID) {
         records.removeAll { $0.id == id }
         save()

@@ -93,4 +93,27 @@ struct RecordingCoordinatorTests {
     func hudDisplayDurationPositive() {
         #expect(RecordingCoordinator.hudDisplayDuration > 0)
     }
+
+    @MainActor
+    @Test("audioDirectory points to Audio subdirectory")
+    func audioDirectory() {
+        let dir = RecordingCoordinator.audioDirectory
+        #expect(dir.lastPathComponent == "Audio")
+        #expect(dir.pathComponents.contains("McWhisper"))
+    }
+
+    @MainActor
+    @Test("retranscribe is safe with record lacking audio file")
+    func retranscribeNoAudio() {
+        let coordinator = RecordingCoordinator()
+        let record = TranscriptionRecord(
+            duration: 1.0,
+            rawText: "test",
+            processedText: "Test.",
+            mode: .voice,
+            modelID: "m"
+        )
+        coordinator.retranscribe(record: record)
+        #expect(coordinator.state == .idle)
+    }
 }

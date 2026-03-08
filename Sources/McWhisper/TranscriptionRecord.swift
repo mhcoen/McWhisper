@@ -8,6 +8,7 @@ struct TranscriptionRecord: Codable, Identifiable, Equatable {
     let processedText: String
     let mode: TranscriptionMode
     let modelID: String
+    let audioFileName: String?
 
     init(
         id: UUID = UUID(),
@@ -16,7 +17,8 @@ struct TranscriptionRecord: Codable, Identifiable, Equatable {
         rawText: String,
         processedText: String,
         mode: TranscriptionMode,
-        modelID: String
+        modelID: String,
+        audioFileName: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -25,5 +27,17 @@ struct TranscriptionRecord: Codable, Identifiable, Equatable {
         self.processedText = processedText
         self.mode = mode
         self.modelID = modelID
+        self.audioFileName = audioFileName
+    }
+
+    var audioFileURL: URL? {
+        guard let audioFileName else { return nil }
+        let dir = HistoryStore.defaultDirectory.appendingPathComponent("Audio", isDirectory: true)
+        return dir.appendingPathComponent(audioFileName)
+    }
+
+    var hasAudioFile: Bool {
+        guard let url = audioFileURL else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
     }
 }

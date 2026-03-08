@@ -132,6 +132,58 @@ final class RecordingCoordinator: ObservableObject {
         }
     }
 
+    // MARK: - Audio file storage
+
+    static let audioDirectory: URL = {
+        HistoryStore.defaultDirectory.appendingPathComponent("Audio", isDirectory: true)
+    }()
+
+    static func saveAudioFile(from tempURL: URL) -> String? {
+        let fileName = UUID().uuidString + ".wav"
+        let dest = audioDirectory.appendingPathComponent(fileName)
+        do {
+            try FileManager.default.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: tempURL, to: dest)
+            return fileName
+        } catch {
+            return nil
+        }
+    }
+
+    // MARK: - Re-transcription
+
+    func retranscribe(record: TranscriptionRecord) {
+        guard let audioURL = record.audioFileURL, record.hasAudioFile else { return }
+
+        Task {
+            if !whisperEngine.isModelCurrent {
+                try? await whisperEngine.loadModel()
+            }
+
+            let language = AppSettings.selectedLanguage
+            let lang: String? = language == "auto" ? nil : language
+
+            do {
+                let text = try await whisperEngine.transcribe(audioURL: audioURL, language: lang)
+                let mode = TranscriptionMode.from(id: AppSettings.selectedMode) ?? .voice
+                let processed = ModeProcessor.process(text, mode: mode)
+                let updated = TranscriptionRecord(
+                    id: record.id,
+                    date: record.date,
+                    duration: record.duration,
+                    rawText: text,
+                    processedText: processed,
+                    mode: mode,
+                    modelID: AppSettings.selectedModelID,
+                    audioFileName: record.audioFileName
+                )
+                historyStore.updateRecord(updated)
+            } catch {
+                // Re-transcription failure is non-fatal
+            }
+        }
+    }
+
     // MARK: - Transcription pipeline
 
     private func transcribeAndPaste(audioURL: URL, duration: TimeInterval) async {
@@ -156,12 +208,14 @@ final class RecordingCoordinator: ObservableObject {
             let processed = ModeProcessor.process(text, mode: mode)
             rawText = text
             processedText = processed
+            let audioFileName = Self.saveAudioFile(from: audioURL)
             let record = TranscriptionRecord(
                 duration: duration,
                 rawText: text,
                 processedText: processed,
                 mode: mode,
-                modelID: AppSettings.selectedModelID
+                modelID: AppSettings.selectedModelID,
+                audioFileName: audioFileName
             )
             historyStore.add(record)
 

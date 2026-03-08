@@ -14,7 +14,12 @@ struct MenuBarView: View {
         Divider()
 
         Button("Recording History…") {
-            HistoryWindowController.shared.show(historyStore: coordinator.historyStore)
+            HistoryWindowController.shared.show(
+                historyStore: coordinator.historyStore,
+                onRetranscribe: { [weak coordinator] record in
+                    coordinator?.retranscribe(record: record)
+                }
+            )
         }
 
         Button("Settings…") {

@@ -124,4 +124,151 @@ struct HistoryStoreTests {
         #expect(dir.lastPathComponent == "McWhisper")
         #expect(dir.pathComponents.contains("Application Support"))
     }
+
+    @Test("Update record replaces matching record")
+    func updateRecord() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        let original = makeRecord(rawText: "original", processedText: "Original.")
+        store.add(original)
+
+        let updated = TranscriptionRecord(
+            id: original.id,
+            date: original.date,
+            duration: original.duration,
+            rawText: "updated",
+            processedText: "Updated.",
+            mode: original.mode,
+            modelID: original.modelID,
+            audioFileName: "test.wav"
+        )
+        store.updateRecord(updated)
+        #expect(store.records.count == 1)
+        #expect(store.records[0].rawText == "updated")
+        #expect(store.records[0].processedText == "Updated.")
+        #expect(store.records[0].audioFileName == "test.wav")
+    }
+
+    @Test("Update record with unknown ID is a no-op")
+    func updateRecordUnknownID() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        store.add(makeRecord())
+        let unknown = TranscriptionRecord(
+            id: UUID(),
+            duration: 1.0,
+            rawText: "x",
+            processedText: "X.",
+            mode: .voice,
+            modelID: "m"
+        )
+        store.updateRecord(unknown)
+        #expect(store.records.count == 1)
+    }
+
+    @Test("Update record persists to disk")
+    func updateRecordPersists() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        let original = makeRecord()
+        store.add(original)
+
+        let updated = TranscriptionRecord(
+            id: original.id,
+            date: original.date,
+            duration: original.duration,
+            rawText: "persisted",
+            processedText: "Persisted.",
+            mode: original.mode,
+            modelID: original.modelID
+        )
+        store.updateRecord(updated)
+
+        let reloaded = HistoryStore(directory: dir)
+        #expect(reloaded.records.count == 1)
+        #expect(reloaded.records[0].rawText == "persisted")
+    }
+
+    // MARK: - TranscriptionRecord audioFileName
+
+    @Test("Record audioFileName defaults to nil")
+    func recordAudioFileNameDefault() {
+        let record = makeRecord()
+        #expect(record.audioFileName == nil)
+    }
+
+    @Test("Record with audioFileName produces audioFileURL")
+    func recordAudioFileURL() {
+        let record = TranscriptionRecord(
+            duration: 1.0,
+            rawText: "a",
+            processedText: "b",
+            mode: .voice,
+            modelID: "m",
+            audioFileName: "test.wav"
+        )
+        let url = record.audioFileURL
+        #expect(url != nil)
+        #expect(url!.lastPathComponent == "test.wav")
+        #expect(url!.pathComponents.contains("Audio"))
+    }
+
+    @Test("Record without audioFileName has nil audioFileURL")
+    func recordNoAudioFileURL() {
+        let record = makeRecord()
+        #expect(record.audioFileURL == nil)
+    }
+
+    @Test("Record hasAudioFile is false when file missing")
+    func recordHasAudioFileFalse() {
+        let record = TranscriptionRecord(
+            duration: 1.0,
+            rawText: "a",
+            processedText: "b",
+            mode: .voice,
+            modelID: "m",
+            audioFileName: "nonexistent.wav"
+        )
+        #expect(!record.hasAudioFile)
+    }
+
+    @Test("Record hasAudioFile is false when audioFileName is nil")
+    func recordHasAudioFileNil() {
+        let record = makeRecord()
+        #expect(!record.hasAudioFile)
+    }
+
+    @Test("Record JSON round-trip preserves audioFileName")
+    func recordRoundTripAudioFileName() throws {
+        let record = TranscriptionRecord(
+            duration: 1.0,
+            rawText: "a",
+            processedText: "b",
+            mode: .voice,
+            modelID: "m",
+            audioFileName: "audio.wav"
+        )
+        let data = try JSONEncoder().encode(record)
+        let decoded = try JSONDecoder().decode(TranscriptionRecord.self, from: data)
+        #expect(decoded.audioFileName == "audio.wav")
+        #expect(decoded == record)
+    }
+
+    @Test("Record decodes without audioFileName for backward compatibility")
+    func recordBackwardCompatibility() throws {
+        let json = """
+        {"id":"550e8400-e29b-41d4-a716-446655440000","date":0,"duration":1.0,\
+        "rawText":"hello","processedText":"Hello.","mode":"voice","modelID":"m"}
+        """
+        let data = Data(json.utf8)
+        let record = try JSONDecoder().decode(TranscriptionRecord.self, from: data)
+        #expect(record.audioFileName == nil)
+        #expect(record.rawText == "hello")
+    }
 }
