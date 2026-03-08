@@ -9,6 +9,10 @@ enum HotkeyManagerError: Error, Equatable {
 final class HotkeyManager: ObservableObject {
     @Published fileprivate(set) var isKeyDown: Bool = false
 
+    /// Thread-safe mirror of `isKeyDown` for reading from the event tap callback thread.
+    fileprivate let _isKeyDownAtomic = NSLock()
+    fileprivate var _isKeyDownValue: Bool = false
+
     var keyCode: Int { AppSettings.hotkeyKeyCode }
     var modifiers: Int { AppSettings.hotkeyModifiers }
 
@@ -82,6 +86,7 @@ final class HotkeyManager: ObservableObject {
         eventTap = nil
         runLoopSource = nil
         isKeyDown = false
+        _isKeyDownAtomic.withLock { _isKeyDownValue = false }
     }
 
     /// Whether the configured hotkey is a modifier-only key (Command, Option, etc.).
@@ -152,17 +157,22 @@ private func hotkeyCallback(
         case 56, 60: modifierFlag = .maskShift
         case 58, 61: modifierFlag = .maskAlternate
         case 59, 62: modifierFlag = .maskControl
+        case 57: modifierFlag = .maskAlphaShift
+        case 63: modifierFlag = .maskSecondaryFn
         default: return Unmanaged.passUnretained(event)
         }
 
         let flagIsSet = event.flags.contains(modifierFlag)
+        let wasDown = manager._isKeyDownAtomic.withLock { manager._isKeyDownValue }
 
-        if flagIsSet && !manager.isKeyDown {
+        if flagIsSet && !wasDown {
+            manager._isKeyDownAtomic.withLock { manager._isKeyDownValue = true }
             DispatchQueue.main.async {
                 manager.isKeyDown = true
                 manager.onKeyDown?()
             }
-        } else if !flagIsSet && manager.isKeyDown {
+        } else if !flagIsSet && wasDown {
+            manager._isKeyDownAtomic.withLock { manager._isKeyDownValue = false }
             DispatchQueue.main.async {
                 manager.isKeyDown = false
                 manager.onKeyUp?()
@@ -178,7 +188,9 @@ private func hotkeyCallback(
 
     switch type {
     case .keyDown:
-        if !manager.isKeyDown {
+        let wasDown = manager._isKeyDownAtomic.withLock { manager._isKeyDownValue }
+        if !wasDown {
+            manager._isKeyDownAtomic.withLock { manager._isKeyDownValue = true }
             DispatchQueue.main.async {
                 manager.isKeyDown = true
                 manager.onKeyDown?()
@@ -187,7 +199,9 @@ private func hotkeyCallback(
         return nil
 
     case .keyUp:
-        if manager.isKeyDown {
+        let wasDown = manager._isKeyDownAtomic.withLock { manager._isKeyDownValue }
+        if wasDown {
+            manager._isKeyDownAtomic.withLock { manager._isKeyDownValue = false }
             DispatchQueue.main.async {
                 manager.isKeyDown = false
                 manager.onKeyUp?()
@@ -200,8 +214,10 @@ private func hotkeyCallback(
         let relevantMask: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand]
         let currentMods = event.flags.intersection(relevantMask).rawValue
         let expectedMods = UInt64(manager.modifiers)
+        let wasDown = manager._isKeyDownAtomic.withLock { manager._isKeyDownValue }
 
-        if manager.isKeyDown && currentMods != expectedMods {
+        if wasDown && currentMods != expectedMods {
+            manager._isKeyDownAtomic.withLock { manager._isKeyDownValue = false }
             DispatchQueue.main.async {
                 manager.isKeyDown = false
                 manager.onKeyUp?()

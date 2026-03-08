@@ -77,7 +77,15 @@ final class RecordingCoordinator: ObservableObject {
     // MARK: - Hotkey handlers
 
     private func handleKeyDown() {
-        guard state == .idle else { return }
+        switch state {
+        case .error:
+            state = .idle
+            windowController.hide()
+        case .idle:
+            break
+        default:
+            return
+        }
 
         do {
             hudDismissTask?.cancel()

@@ -103,7 +103,7 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
 - [x] Open Recording History, verify past transcriptions appear, select one, copy it, delete it
 - [x] Switch transcription modes (Voice, Message, Email, Note, Meeting) and verify formatting differences
 - [x] Quit and relaunch. Verify launch-at-login setting persists and the app reappears in the menu bar
-- [ ] With no frontmost app, record and release. Verify clipboard fallback and HUD notification
+- [x] With no frontmost app, record and release. Verify clipboard fallback and HUD notification
 
 ---
 

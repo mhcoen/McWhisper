@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct HistoryView: View {
-    let historyStore: HistoryStore
+    @ObservedObject var historyStore: HistoryStore
     var onRetranscribe: ((TranscriptionRecord) -> Void)?
     @State private var searchText = ""
     @State private var selectedRecordIDs: Set<UUID> = []

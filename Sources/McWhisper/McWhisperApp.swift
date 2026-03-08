@@ -54,7 +54,7 @@ struct StatusView: View {
         Group {
             switch coordinator.state {
             case .idle:
-                Text("Ready (Option+Space)")
+                Text("Ready (\(HotkeyFormatter.displayString(keyCode: AppSettings.hotkeyKeyCode, modifiers: AppSettings.hotkeyModifiers)))")
                     .foregroundStyle(.secondary)
             case .recording:
                 Text("Recording...")

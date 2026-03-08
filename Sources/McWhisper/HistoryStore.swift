@@ -1,8 +1,9 @@
+import Combine
 import Foundation
 
-final class HistoryStore {
+final class HistoryStore: ObservableObject {
     private let fileURL: URL
-    private(set) var records: [TranscriptionRecord] = []
+    @Published private(set) var records: [TranscriptionRecord] = []
 
     init(directory: URL? = nil) {
         let dir = directory ?? HistoryStore.defaultDirectory

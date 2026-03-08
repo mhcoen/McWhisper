@@ -30,6 +30,7 @@ final class AudioEngine: ObservableObject {
     /// Frames since last frame above threshold (used for hangover).
     private var vadSilentFrameCount: Int = 0
     private var vadHangoverFrames: Int = 0  // computed at start based on sample rate
+    private let vadLock = NSLock()
 
     /// 16-bit 16 kHz mono — standard Whisper input format.
     static let whisperFormat = AVAudioFormat(
@@ -72,10 +73,12 @@ final class AudioEngine: ObservableObject {
 
         // Compute VAD hangover in frames based on hardware sample rate.
         let vadFrameSize = Int(hwFormat.sampleRate * AudioEngine.vadFrameDuration)
-        self.vadHangoverFrames = vadFrameSize > 0
-            ? Int(AudioEngine.vadHangoverDuration / AudioEngine.vadFrameDuration)
-            : 0
-        self.vadSilentFrameCount = vadHangoverFrames  // start as silent
+        vadLock.withLock {
+            self.vadHangoverFrames = vadFrameSize > 0
+                ? Int(AudioEngine.vadHangoverDuration / AudioEngine.vadFrameDuration)
+                : 0
+            self.vadSilentFrameCount = vadHangoverFrames  // start as silent
+        }
 
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) { [weak self] buffer, _ in
             guard let self = self else { return }
@@ -93,25 +96,27 @@ final class AudioEngine: ObservableObject {
 
                 // VAD: process 20 ms frames within this buffer.
                 var speechInBuffer = false
-                if vadFrameSize > 0 {
-                    var offset = 0
-                    while offset + vadFrameSize <= totalFrames {
-                        var frameSum: Float = 0
-                        for i in offset..<(offset + vadFrameSize) {
-                            let s = samples[i]
-                            frameSum += s * s
+                let detected: Bool = self.vadLock.withLock {
+                    if vadFrameSize > 0 {
+                        var offset = 0
+                        while offset + vadFrameSize <= totalFrames {
+                            var frameSum: Float = 0
+                            for i in offset..<(offset + vadFrameSize) {
+                                let s = samples[i]
+                                frameSum += s * s
+                            }
+                            let frameRMS = sqrtf(frameSum / Float(vadFrameSize))
+                            if frameRMS >= AudioEngine.vadThreshold {
+                                self.vadSilentFrameCount = 0
+                                speechInBuffer = true
+                            } else {
+                                self.vadSilentFrameCount += 1
+                            }
+                            offset += vadFrameSize
                         }
-                        let frameRMS = sqrtf(frameSum / Float(vadFrameSize))
-                        if frameRMS >= AudioEngine.vadThreshold {
-                            self.vadSilentFrameCount = 0
-                            speechInBuffer = true
-                        } else {
-                            self.vadSilentFrameCount += 1
-                        }
-                        offset += vadFrameSize
                     }
+                    return speechInBuffer || self.vadSilentFrameCount < self.vadHangoverFrames
                 }
-                let detected = speechInBuffer || self.vadSilentFrameCount < self.vadHangoverFrames
 
                 DispatchQueue.main.async {
                     self.audioLevel = clamped
@@ -165,7 +170,7 @@ final class AudioEngine: ObservableObject {
         self.isRecording = false
         self.audioLevel = 0.0
         self.speechDetected = false
-        self.vadSilentFrameCount = 0
+        vadLock.withLock { self.vadSilentFrameCount = 0 }
 
         // Trim leading/trailing silence in-place.
         try AudioEngine.trimSilence(
