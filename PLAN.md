@@ -78,10 +78,10 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Hotkey recorder: a focusable `NSViewRepresentable` that captures the next key combo and saves it to `AppSettings`
   - [x] Model download: show download progress with `URLSession` downloading the WhisperKit model package to `~/Library/Application Support/McWhisper/Models/`
 
-- [ ] Build transcription history window
+- [x] Build transcription history window
   - [x] Create `HistoryView.swift`: searchable `List` of `TranscriptionRecord` sorted by date descending; each row shows timestamp, duration, mode badge, and first line of processed text
   - [x] Detail pane on row selection: full processed text, raw text toggle, Copy button, Re-transcribe button (re-runs current model + mode on the saved audio file)
-  - [ ] Multi-select delete with confirmation alert; persist deletions to `HistoryStore`
+  - [x] Multi-select delete with confirmation alert; persist deletions to `HistoryStore`
 
 - [ ] Wire end-to-end pipeline and integration test
   - [x] Connect hotkey → audio capture → VAD → WhisperKit streaming transcription → mode post-processing → auto-paste, updating `RecordingView` state at each step
