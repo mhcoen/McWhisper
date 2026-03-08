@@ -129,6 +129,14 @@ struct RecordingViewTests {
         _ = view.body
     }
 
+    @Test("HudView builds with clipboard fallback message")
+    func hudViewClipboardFallback() {
+        let view = HudView(message: "Copied to clipboard")
+        _ = view.body
+        // The HUD uses doc.on.clipboard icon and displays the message
+        #expect(view.message == "Copied to clipboard")
+    }
+
     @Test("WaveformView renders correct number of bars from levels array")
     func waveformBarCount() {
         let levels = Array(repeating: Float(0.3), count: 30)

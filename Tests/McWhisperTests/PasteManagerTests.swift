@@ -51,10 +51,21 @@ struct PasteManagerTests {
     @Test("paste writes to general pasteboard when no target")
     func pasteCopiesOnFailure() {
         let manager = PasteManager()
-        let returned = manager.paste("fallback text")
+        let text = "fallback text"
+        let returned = manager.paste(text)
         #expect(returned == false)
-        // Pasteboard access may be restricted in sandboxed test environments,
-        // so we only verify the return value here.
+        // Pasteboard write is attempted but may not be readable in sandboxed tests
+    }
+
+    @MainActor
+    @Test("paste with cleared target returns false (clipboard fallback)")
+    func pasteAfterClearTarget() {
+        let manager = PasteManager()
+        manager.captureTarget()
+        manager.clearTarget()
+        let result = manager.paste("cleared target text")
+        #expect(result == false)
+        #expect(manager.targetApplication == nil)
     }
 
     @MainActor
