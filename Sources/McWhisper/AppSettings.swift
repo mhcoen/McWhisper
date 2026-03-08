@@ -18,6 +18,7 @@ struct AppSettings {
         static let panelPositionX = "panelPositionX"
         static let panelPositionY = "panelPositionY"
         static let hasSavedPanelPosition = "hasSavedPanelPosition"
+        static let hasCompletedOnboarding = "hasCompletedOnboarding"
     }
 
     @AppStorage(Keys.selectedModelID) static var selectedModelID: String = defaultModelID
@@ -29,6 +30,7 @@ struct AppSettings {
     @AppStorage(Keys.panelPositionX) static var panelPositionX: Double = 0
     @AppStorage(Keys.panelPositionY) static var panelPositionY: Double = 0
     @AppStorage(Keys.hasSavedPanelPosition) static var hasSavedPanelPosition: Bool = false
+    @AppStorage(Keys.hasCompletedOnboarding) static var hasCompletedOnboarding: Bool = false
 
     static func resetToDefaults() {
         selectedModelID = defaultModelID

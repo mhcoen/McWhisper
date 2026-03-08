@@ -41,6 +41,7 @@ struct AppSettingsTests {
             AppSettings.Keys.panelPositionX,
             AppSettings.Keys.panelPositionY,
             AppSettings.Keys.hasSavedPanelPosition,
+            AppSettings.Keys.hasCompletedOnboarding,
         ]
         #expect(Set(keys).count == keys.count)
     }

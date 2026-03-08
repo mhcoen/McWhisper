@@ -81,6 +81,11 @@ struct StatusView: View {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if !AppSettings.hasCompletedOnboarding {
+            OnboardingWindowController.shared.show()
+            return
+        }
+
         Task { @MainActor in
             let granted = await MicrophonePermission.request()
             if !granted {
