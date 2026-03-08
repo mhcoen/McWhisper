@@ -13,16 +13,34 @@ final class WhisperKitEngine: ObservableObject {
     private var loadedModelID: String?
 
     /// Load the model specified in AppSettings asynchronously.
+    /// Uses locally downloaded models from ModelDownloader when available,
+    /// otherwise falls back to WhisperKit's built-in download.
     func loadModel() async throws {
         let modelID = AppSettings.selectedModelID
-        // Extract variant name from model ID (e.g. "openai_whisper-base" -> "base")
         let variant = modelVariant(from: modelID)
 
         modelState = .loading
         do {
-            let kit = try await WhisperKit(
-                WhisperKitConfig(model: variant, verbose: false, logLevel: .none)
-            )
+            // Check if the model was downloaded to our local Models directory
+            let modelsDir = ModelDownloader.modelsDirectoryPath
+            let localDir = URL(fileURLWithPath: modelsDir).appendingPathComponent(modelID)
+            var isDir: ObjCBool = false
+            let hasLocalModel = FileManager.default.fileExists(atPath: localDir.path, isDirectory: &isDir) && isDir.boolValue
+
+            let config: WhisperKitConfig
+            if hasLocalModel {
+                config = WhisperKitConfig(
+                    model: variant,
+                    modelFolder: localDir.path,
+                    verbose: false,
+                    logLevel: .none,
+                    download: false
+                )
+            } else {
+                config = WhisperKitConfig(model: variant, verbose: false, logLevel: .none)
+            }
+
+            let kit = try await WhisperKit(config)
             whisperKit = kit
             loadedModelID = modelID
             modelState = .loaded

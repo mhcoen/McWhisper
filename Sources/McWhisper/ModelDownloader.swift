@@ -28,10 +28,14 @@ final class ModelDownloader: ObservableObject {
 
     let modelsDirectory: URL
 
+    /// Non-isolated path string for use from any context.
+    nonisolated static let modelsDirectoryPath: String = {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent("McWhisper/Models", isDirectory: true).path
+    }()
+
     static let defaultModelsDirectory: URL = {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("McWhisper", isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
+        URL(fileURLWithPath: modelsDirectoryPath)
     }()
 
     static let repoID = "argmaxinc/whisperkit-coreml"

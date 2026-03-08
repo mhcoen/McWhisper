@@ -304,14 +304,27 @@ struct ModelsSettingsTab: View {
     @AppStorage(AppSettings.Keys.selectedModelID) private var selectedModelID: String = AppSettings.defaultModelID
     @StateObject private var downloader = ModelDownloader()
     @State private var downloadTasks: [String: Task<Void, Error>] = [:]
+    @State private var previousModelID: String = AppSettings.defaultModelID
 
     var body: some View {
         Form {
             Section("Active Model") {
                 Picker("Model:", selection: $selectedModelID) {
                     ForEach(ModelCatalog.availableModels) { model in
+                        let isAvailable = model.isBundled || downloader.state(for: model.id) == .downloaded
                         Text("\(model.displayName) (\(model.sizeLabel))")
                             .tag(model.id)
+                            .foregroundStyle(isAvailable ? .primary : .secondary)
+                    }
+                }
+                .onChange(of: selectedModelID) { _, newValue in
+                    // Revert to previous model if the selected one isn't downloaded
+                    if let model = ModelCatalog.model(for: newValue),
+                       !model.isBundled,
+                       downloader.state(for: newValue) != .downloaded {
+                        selectedModelID = previousModelID
+                    } else {
+                        previousModelID = newValue
                     }
                 }
             }

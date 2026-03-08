@@ -39,3 +39,11 @@ Default hotkey was set to Right Command (keyCode 54, modifiers 0) but tests and 
 `PasteManagerTests` hung when calling `paste()` with a captured target because `app.activate()` and `CGEvent.post()` block in Claude Code's sandbox. Removed the test that exercises the actual paste path with a real target; clipboard-only behavior is tested via the no-target path.
 
 The app cannot be launched from Claude Code's sandbox due to XPC service connection failures. `run.sh` must be run from a normal terminal to launch the app and grant Microphone/Accessibility permissions via the onboarding sheet or system dialogs.
+
+## 2026-03-07 — [19] Download a larger model from Settings > Models, switch to it, and verify transcription still works
+
+`WhisperKitEngine.loadModel()` was not using models downloaded via `ModelDownloader`. It only passed a variant name to WhisperKit, which would try to download its own copy. Fixed to check `ModelDownloader.modelsDirectoryPath` for locally downloaded models and pass `modelFolder` + `download: false` to `WhisperKitConfig` when found.
+
+The model picker in `ModelsSettingsTab` allowed selecting any model regardless of download state. Added an `onChange` guard that reverts selection if the chosen model isn't downloaded. Undownloaded models still appear in the picker (for discoverability) but are shown in secondary color and can't be selected.
+
+Added `nonisolated static let modelsDirectoryPath` to `ModelDownloader` to provide the models directory path from non-MainActor contexts (needed by `WhisperKitEngine.loadModel()` which runs on arbitrary threads).

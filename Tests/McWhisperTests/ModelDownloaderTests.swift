@@ -76,6 +76,14 @@ struct ModelDownloaderTests {
         #expect(dir.path.hasSuffix("Models"))
     }
 
+    @Test("modelsDirectoryPath matches defaultModelsDirectory")
+    func modelsDirectoryPathConsistency() {
+        let path = ModelDownloader.modelsDirectoryPath
+        #expect(path.contains("Application Support"))
+        #expect(path.contains("McWhisper"))
+        #expect(path.hasSuffix("Models"))
+    }
+
     @MainActor
     @Test("Custom models directory is used")
     func customModelsDirectory() {
