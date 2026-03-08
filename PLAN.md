@@ -101,7 +101,7 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
 - [x] Open Settings, change the hotkey, verify the new hotkey works
 - [x] Download a larger model from Settings > Models, switch to it, and verify transcription still works
 - [x] Open Recording History, verify past transcriptions appear, select one, copy it, delete it
-- [ ] Switch transcription modes (Voice, Message, Email, Note, Meeting) and verify formatting differences
+- [x] Switch transcription modes (Voice, Message, Email, Note, Meeting) and verify formatting differences
 - [ ] Quit and relaunch. Verify launch-at-login setting persists and the app reappears in the menu bar
 - [ ] With no frontmost app, record and release. Verify clipboard fallback and HUD notification
 
