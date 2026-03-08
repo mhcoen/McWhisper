@@ -80,7 +80,7 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
 
 - [ ] Build transcription history window
   - [x] Create `HistoryView.swift`: searchable `List` of `TranscriptionRecord` sorted by date descending; each row shows timestamp, duration, mode badge, and first line of processed text
-  - [ ] Detail pane on row selection: full processed text, raw text toggle, Copy button, Re-transcribe button (re-runs current model + mode on the saved audio file)
+  - [x] Detail pane on row selection: full processed text, raw text toggle, Copy button, Re-transcribe button (re-runs current model + mode on the saved audio file)
   - [ ] Multi-select delete with confirmation alert; persist deletions to `HistoryStore`
 
 - [ ] Wire end-to-end pipeline and integration test
