@@ -47,3 +47,7 @@ The app cannot be launched from Claude Code's sandbox due to XPC service connect
 The model picker in `ModelsSettingsTab` allowed selecting any model regardless of download state. Added an `onChange` guard that reverts selection if the chosen model isn't downloaded. Undownloaded models still appear in the picker (for discoverability) but are shown in secondary color and can't be selected.
 
 Added `nonisolated static let modelsDirectoryPath` to `ModelDownloader` to provide the models directory path from non-MainActor contexts (needed by `WhisperKitEngine.loadModel()` which runs on arbitrary threads).
+
+## 2026-03-07 — [21] Switch transcription modes and verify formatting differences
+
+Foundation's `.bySentences` enumeration does not split sentences that start with lowercase letters. For example, "buy groceries. clean the house." is treated as a single sentence. This affects Note mode (bullet points) and Meeting mode (paragraph breaks) when Whisper outputs lowercase text without proper capitalization. Whisper typically capitalizes sentence starts, so this is unlikely to be a real-world issue, but worth knowing when writing tests.

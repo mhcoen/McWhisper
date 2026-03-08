@@ -120,4 +120,72 @@ struct ModeProcessorTests {
         #expect(sentences.count == 1)
         #expect(sentences.first == "just some words")
     }
+
+    // MARK: - Cross-mode formatting differences
+
+    @Test func allModesProduceDistinctOutput() {
+        // Use lowercase input without trailing punctuation so voice (passthrough)
+        // and message (adds capitalization + period) differ.
+        let input = "remember this"
+        var outputs: [String: String] = [:]
+        for mode in TranscriptionMode.builtIn {
+            outputs[mode.id] = ModeProcessor.process(input, mode: mode)
+        }
+        // Each built-in mode should produce a unique output
+        let uniqueOutputs = Set(outputs.values)
+        #expect(uniqueOutputs.count == TranscriptionMode.builtIn.count,
+                "Expected \(TranscriptionMode.builtIn.count) distinct outputs, got \(uniqueOutputs.count)")
+    }
+
+    @Test func modeSwitchingViaSettingsID() {
+        // Verify that resolving a mode by its AppSettings ID and processing
+        // text through it produces the expected format.
+        let input = "remember to buy milk"
+
+        let voiceMode = TranscriptionMode.from(id: "voice")!
+        let messageMode = TranscriptionMode.from(id: "message")!
+        let noteMode = TranscriptionMode.from(id: "note")!
+
+        let voiceResult = ModeProcessor.process(input, mode: voiceMode)
+        let messageResult = ModeProcessor.process(input, mode: messageMode)
+        let noteResult = ModeProcessor.process(input, mode: noteMode)
+
+        // Voice: raw passthrough
+        #expect(voiceResult == "remember to buy milk")
+        // Message: sentence case + punctuation
+        #expect(messageResult == "Remember to buy milk.")
+        // Note: bullet point
+        #expect(noteResult == "- Remember to buy milk")
+    }
+
+    @Test func emailFormatStructure() {
+        let result = ModeProcessor.process("check the logs. restart the server.", mode: .email)
+        let lines = result.components(separatedBy: "\n")
+        // Structure: greeting, blank, body, blank, sign-off line 1, sign-off line 2
+        #expect(lines.first == "Hi [Name],")
+        #expect(lines.last == "[Your Name]")
+        #expect(lines[lines.count - 2] == "Best,")
+    }
+
+    @Test func meetingMultiSentenceStructure() {
+        // Foundation .bySentences requires capitalized sentence starts
+        let result = ModeProcessor.process("We discussed the budget. Timeline was reviewed. Next steps agreed.", mode: .meeting)
+        let paragraphs = result.components(separatedBy: "\n\n")
+        #expect(paragraphs.count == 3)
+        for para in paragraphs {
+            #expect(para.first?.isUppercase == true)
+        }
+    }
+
+    @Test func noteMultiSentenceBullets() {
+        // Foundation .bySentences requires capitalized sentence starts
+        let result = ModeProcessor.process("Buy groceries. Clean the house. Call mom.", mode: .note)
+        let lines = result.components(separatedBy: "\n")
+        #expect(lines.count == 3)
+        for line in lines {
+            #expect(line.hasPrefix("- "))
+            let content = String(line.dropFirst(2))
+            #expect(content.first?.isUppercase == true)
+        }
+    }
 }
