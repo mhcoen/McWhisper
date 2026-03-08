@@ -32,6 +32,12 @@ final class HistoryStore {
         save()
     }
 
+    func deleteRecords(ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        records.removeAll { ids.contains($0.id) }
+        save()
+    }
+
     func clearAll() {
         records.removeAll()
         save()

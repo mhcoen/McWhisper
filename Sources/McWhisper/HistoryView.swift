@@ -5,7 +5,8 @@ struct HistoryView: View {
     let historyStore: HistoryStore
     var onRetranscribe: ((TranscriptionRecord) -> Void)?
     @State private var searchText = ""
-    @State private var selectedRecordID: UUID?
+    @State private var selectedRecordIDs: Set<UUID> = []
+    @State private var showDeleteConfirmation = false
 
     private var filteredRecords: [TranscriptionRecord] {
         let sorted = historyStore.records.sorted { $0.date > $1.date }
@@ -17,7 +18,7 @@ struct HistoryView: View {
     }
 
     private var selectedRecord: TranscriptionRecord? {
-        guard let id = selectedRecordID else { return nil }
+        guard selectedRecordIDs.count == 1, let id = selectedRecordIDs.first else { return nil }
         return historyStore.records.first { $0.id == id }
     }
 
@@ -29,11 +30,29 @@ struct HistoryView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 HSplitView {
-                    List(filteredRecords, selection: $selectedRecordID) { record in
-                        HistoryRow(record: record)
-                            .tag(record.id)
+                    VStack(spacing: 0) {
+                        List(filteredRecords, selection: $selectedRecordIDs) { record in
+                            HistoryRow(record: record)
+                                .tag(record.id)
+                        }
+                        .searchable(text: $searchText, prompt: "Search recordings")
+
+                        if !selectedRecordIDs.isEmpty {
+                            Divider()
+                            HStack {
+                                Button(role: .destructive) {
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label(
+                                        "Delete \(selectedRecordIDs.count) Recording\(selectedRecordIDs.count == 1 ? "" : "s")",
+                                        systemImage: "trash"
+                                    )
+                                }
+                                Spacer()
+                            }
+                            .padding(8)
+                        }
                     }
-                    .searchable(text: $searchText, prompt: "Search recordings")
                     .frame(minWidth: 200)
 
                     if let record = selectedRecord {
@@ -44,7 +63,9 @@ struct HistoryView: View {
                         .frame(minWidth: 250)
                         .id(record.id)
                     } else {
-                        Text("Select a recording")
+                        Text(selectedRecordIDs.count > 1
+                            ? "\(selectedRecordIDs.count) recordings selected"
+                            : "Select a recording")
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .frame(minWidth: 250)
@@ -53,6 +74,18 @@ struct HistoryView: View {
             }
         }
         .frame(minWidth: 550, minHeight: 300)
+        .alert(
+            "Delete \(selectedRecordIDs.count) Recording\(selectedRecordIDs.count == 1 ? "" : "s")?",
+            isPresented: $showDeleteConfirmation
+        ) {
+            Button("Delete", role: .destructive) {
+                historyStore.deleteRecords(ids: selectedRecordIDs)
+                selectedRecordIDs.removeAll()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action cannot be undone.")
+        }
     }
 }
 

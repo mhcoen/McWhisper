@@ -195,6 +195,64 @@ struct HistoryStoreTests {
         #expect(reloaded.records[0].rawText == "persisted")
     }
 
+    // MARK: - Batch delete
+
+    @Test("Delete multiple records by IDs")
+    func deleteRecordsBatch() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        let r1 = makeRecord(rawText: "first")
+        let r2 = makeRecord(rawText: "second")
+        let r3 = makeRecord(rawText: "third")
+        store.add(r1)
+        store.add(r2)
+        store.add(r3)
+        store.deleteRecords(ids: [r1.id, r3.id])
+        #expect(store.records.count == 1)
+        #expect(store.records[0] == r2)
+    }
+
+    @Test("Batch delete persists to disk")
+    func deleteRecordsBatchPersists() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        let r1 = makeRecord(rawText: "keep")
+        let r2 = makeRecord(rawText: "remove")
+        store.add(r1)
+        store.add(r2)
+        store.deleteRecords(ids: [r2.id])
+
+        let reloaded = HistoryStore(directory: dir)
+        #expect(reloaded.records.count == 1)
+        #expect(reloaded.records[0] == r1)
+    }
+
+    @Test("Batch delete with empty set is a no-op")
+    func deleteRecordsEmptySet() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        store.add(makeRecord())
+        store.deleteRecords(ids: [])
+        #expect(store.records.count == 1)
+    }
+
+    @Test("Batch delete with unknown IDs is safe")
+    func deleteRecordsUnknownIDs() {
+        let dir = makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = HistoryStore(directory: dir)
+        store.add(makeRecord())
+        store.deleteRecords(ids: [UUID(), UUID()])
+        #expect(store.records.count == 1)
+    }
+
     // MARK: - TranscriptionRecord audioFileName
 
     @Test("Record audioFileName defaults to nil")
