@@ -2,8 +2,8 @@ import SwiftUI
 
 struct AppSettings {
     static let defaultModelID = "openai_whisper-base"
-    static let defaultHotkeyKeyCode: UInt16 = 54  // Right Command
-    static let defaultHotkeyModifiers: UInt32 = 0  // No additional modifiers
+    static let defaultHotkeyKeyCode: UInt16 = 49  // Space
+    static let defaultHotkeyModifiers: UInt32 = 524288  // Option
     static let defaultMode = "voice"
     static let defaultLanguage = "auto"
     static let defaultSilenceThreshold: Float = 0.015

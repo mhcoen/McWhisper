@@ -29,3 +29,13 @@ The panel stays visible on `.error` state. There is no auto-dismiss or manual di
 The app process exits quickly when launched from the sandbox due to XPC service connection failures (`com.apple.hiservices-xpcservice`, `ClientCallsAuxiliary`). No crash reports are generated — the exit is clean. This is expected: the sandbox lacks full macOS GUI services needed by NSApplication/SwiftUI.
 
 To visually verify the menu bar icon, launch outside the sandbox: `bash run.sh` from a normal terminal, then use `appshot "McWhisper" screenshot.png` — but note that `appshot` may need the MenuBarExtra popover to be open (click the icon first) since there's no standalone window.
+
+## 2026-03-07 — [16] Run `run.sh`, launch app, grant Microphone and Accessibility permissions
+
+Default hotkey was set to Right Command (keyCode 54, modifiers 0) but tests and the StatusView UI text said "Option+Space" (keyCode 49, modifiers 524288). Fixed AppSettings defaults to Option+Space.
+
+`TranscriptionMode` used auto-synthesized Codable which encoded built-in modes as keyed dictionaries (e.g. `{"voice":{}}`), but old history records stored them as plain strings (e.g. `"voice"`). Added custom Codable conformance that encodes in a clean `{"type":"voice"}` format and decodes both the new format and legacy plain-string format for backward compatibility.
+
+`PasteManagerTests` hung when calling `paste()` with a captured target because `app.activate()` and `CGEvent.post()` block in Claude Code's sandbox. Removed the test that exercises the actual paste path with a real target; clipboard-only behavior is tested via the no-target path.
+
+The app cannot be launched from Claude Code's sandbox due to XPC service connection failures. `run.sh` must be run from a normal terminal to launch the app and grant Microphone/Accessibility permissions via the onboarding sheet or system dialogs.

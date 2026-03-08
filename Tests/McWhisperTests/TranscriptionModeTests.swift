@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import McWhisper
 
-@Suite("TranscriptionMode")
+@Suite("TranscriptionMode", .serialized)
 struct TranscriptionModeTests {
     @Test("Built-in modes have expected count")
     func builtInCount() {
