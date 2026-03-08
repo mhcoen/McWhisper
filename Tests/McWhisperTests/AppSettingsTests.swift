@@ -8,10 +8,10 @@ struct AppSettingsTests {
         #expect(AppSettings.defaultModelID == "openai_whisper-base")
     }
 
-    @Test("Default hotkey is Option+Space")
+    @Test("Default hotkey is Right Command")
     func defaultHotkey() {
-        #expect(AppSettings.defaultHotkeyKeyCode == 49)
-        #expect(AppSettings.defaultHotkeyModifiers == 524288)
+        #expect(AppSettings.defaultHotkeyKeyCode == 54)
+        #expect(AppSettings.defaultHotkeyModifiers == 0)
     }
 
     @Test("Default mode is voice")

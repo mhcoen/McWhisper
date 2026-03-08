@@ -92,6 +92,18 @@ enum HotkeyFormatter {
 
     static func keyName(for keyCode: Int) -> String {
         switch keyCode {
+        // Modifier-only keys
+        case kVK_RightCommand: return "Right \u{2318}"
+        case kVK_Command: return "Left \u{2318}"
+        case kVK_Shift: return "Left \u{21E7}"
+        case kVK_RightShift: return "Right \u{21E7}"
+        case kVK_Option: return "Left \u{2325}"
+        case kVK_RightOption: return "Right \u{2325}"
+        case kVK_Control: return "Left \u{2303}"
+        case kVK_RightControl: return "Right \u{2303}"
+        case kVK_CapsLock: return "\u{21EA}"
+        case kVK_Function: return "Fn"
+        // Regular keys
         case kVK_Space: return "Space"
         case kVK_Return: return "Return"
         case kVK_Tab: return "Tab"
@@ -260,6 +272,28 @@ final class HotkeyRecorderNSView: NSView {
         onKeyEvent?(Int(event.keyCode), mods)
         isRecordingHotkey = false
         displayText = HotkeyFormatter.displayString(keyCode: Int(event.keyCode), modifiers: mods)
+        window?.makeFirstResponder(nil)
+    }
+
+    /// Modifier key codes that can be used as standalone hotkeys.
+    private static let modifierKeyCodes: Set<UInt16> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
+
+    override func flagsChanged(with event: NSEvent) {
+        guard isRecordingHotkey else {
+            super.flagsChanged(with: event)
+            return
+        }
+        // Only capture modifier-only keys (press, not release).
+        guard Self.modifierKeyCodes.contains(event.keyCode) else { return }
+        // Check if the modifier flag is now set (key pressed, not released).
+        let relevantMask: NSEvent.ModifierFlags = [.shift, .control, .option, .command]
+        let currentMods = event.modifierFlags.intersection(relevantMask)
+        guard !currentMods.isEmpty else { return }
+
+        let code = Int(event.keyCode)
+        onKeyEvent?(code, 0)
+        isRecordingHotkey = false
+        displayText = HotkeyFormatter.displayString(keyCode: code, modifiers: 0)
         window?.makeFirstResponder(nil)
     }
 }

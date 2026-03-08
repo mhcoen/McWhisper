@@ -32,14 +32,14 @@ struct SettingsViewTests {
         _ = view.body
     }
 
-    @Test("HotkeyFormatter displays Option+Space correctly")
-    func hotkeyFormatterOptionSpace() {
+    @Test("HotkeyFormatter displays Right Command correctly")
+    func hotkeyFormatterRightCommand() {
         let display = HotkeyFormatter.displayString(
             keyCode: Int(AppSettings.defaultHotkeyKeyCode),
             modifiers: Int(AppSettings.defaultHotkeyModifiers)
         )
-        #expect(display.contains("Space"))
-        #expect(display.contains("\u{2325}"))  // Option symbol
+        #expect(display.contains("Right"))
+        #expect(display.contains("\u{2318}"))  // Command symbol
     }
 
     @Test("HotkeyFormatter keyName for known keys")
@@ -48,6 +48,18 @@ struct SettingsViewTests {
         #expect(HotkeyFormatter.keyName(for: 36) == "Return")
         #expect(HotkeyFormatter.keyName(for: 48) == "Tab")
         #expect(HotkeyFormatter.keyName(for: 53) == "Esc")
+    }
+
+    @Test("HotkeyFormatter keyName for modifier keys")
+    func hotkeyFormatterModifierKeyNames() {
+        #expect(HotkeyFormatter.keyName(for: 54).contains("\u{2318}"))  // Right Command
+        #expect(HotkeyFormatter.keyName(for: 55).contains("\u{2318}"))  // Left Command
+        #expect(HotkeyFormatter.keyName(for: 56).contains("\u{21E7}"))  // Left Shift
+        #expect(HotkeyFormatter.keyName(for: 60).contains("\u{21E7}"))  // Right Shift
+        #expect(HotkeyFormatter.keyName(for: 58).contains("\u{2325}"))  // Left Option
+        #expect(HotkeyFormatter.keyName(for: 61).contains("\u{2325}"))  // Right Option
+        #expect(HotkeyFormatter.keyName(for: 59).contains("\u{2303}"))  // Left Control
+        #expect(HotkeyFormatter.keyName(for: 62).contains("\u{2303}"))  // Right Control
     }
 
     @Test("HotkeyFormatter includes modifier symbols")

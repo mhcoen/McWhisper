@@ -31,13 +31,18 @@ struct HotkeyManagerTests {
         #expect(manager.modifiers == AppSettings.hotkeyModifiers)
     }
 
-    @Test("Default hotkey is Option+Space")
+    @Test("Default hotkey is Right Command")
     func defaultHotkey() {
         let manager = HotkeyManager()
-        // Space = keycode 49
-        #expect(manager.keyCode == 49)
-        // Option modifier
-        #expect(manager.modifiers == Int(AppSettings.defaultHotkeyModifiers))
+        // Right Command = keycode 54
+        #expect(manager.keyCode == 54)
+        #expect(manager.modifiers == 0)
+    }
+
+    @Test("Default hotkey is a modifier-only key")
+    func defaultIsModifierOnly() {
+        let manager = HotkeyManager()
+        #expect(manager.isModifierOnlyKey)
     }
 
     @Test("HotkeyManagerError cases are distinct")
