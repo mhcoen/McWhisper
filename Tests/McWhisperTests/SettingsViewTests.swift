@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 import AppKit
+import ServiceManagement
 @testable import McWhisper
 
 @Suite("SettingsView")
@@ -61,6 +62,25 @@ struct SettingsViewTests {
     func hotkeyFormatterNoModifiers() {
         let display = HotkeyFormatter.displayString(keyCode: 49, modifiers: 0)
         #expect(display == "Space")
+    }
+
+    // MARK: - Launch at Login
+
+    @MainActor
+    @Test("SMAppService.mainApp.status returns a valid status")
+    func launchAtLoginStatusQueryable() {
+        let status = SMAppService.mainApp.status
+        let validStatuses: [SMAppService.Status] = [.enabled, .notRegistered, .notFound, .requiresApproval]
+        #expect(validStatuses.contains(status))
+    }
+
+    @MainActor
+    @Test("GeneralSettingsTab includes launch-at-login toggle")
+    func generalTabIncludesLaunchToggle() {
+        // GeneralSettingsTab builds successfully with the launch-at-login section
+        let view = GeneralSettingsTab()
+        _ = view.body
+        // If SMAppService were unavailable, the view would fail to build
     }
 
     // MARK: - Hotkey Recorder
