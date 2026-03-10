@@ -8,9 +8,19 @@ final class RecordingCoordinator: ObservableObject {
     let hotkeyManager = HotkeyManager()
     let audioEngine = AudioEngine()
     let whisperEngine = WhisperKitEngine()
+    let qwen3Engine = Qwen3ASREngine()
     let historyStore = HistoryStore()
     let windowController = RecordingWindowController()
     let pasteManager = PasteManager()
+
+    /// Returns the transcription engine for the currently selected model.
+    var activeEngine: TranscriptionEngine {
+        let modelID = AppSettings.selectedModelID
+        if let model = ModelCatalog.model(for: modelID), model.engine == .qwen3asr {
+            return qwen3Engine
+        }
+        return whisperEngine
+    }
 
     enum State: Equatable {
         case idle
@@ -172,15 +182,16 @@ final class RecordingCoordinator: ObservableObject {
         guard let audioURL = record.audioFileURL, record.hasAudioFile else { return }
 
         Task {
-            if !whisperEngine.isModelCurrent {
-                try? await whisperEngine.loadModel()
+            let engine = activeEngine
+            if !engine.isModelCurrent {
+                try? await engine.loadModel()
             }
 
             let language = AppSettings.selectedLanguage
             let lang: String? = language == "auto" ? nil : language
 
             do {
-                let text = try await whisperEngine.transcribe(audioURL: audioURL, language: lang)
+                let text = try await engine.transcribe(audioURL: audioURL, language: lang)
                 let mode = TranscriptionMode.from(id: AppSettings.selectedMode) ?? .voice
                 let processed = ModeProcessor.process(text, mode: mode)
                 let updated = TranscriptionRecord(
@@ -203,9 +214,10 @@ final class RecordingCoordinator: ObservableObject {
     // MARK: - Transcription pipeline
 
     private func transcribeAndPaste(recording: RecordedAudio, duration: TimeInterval) async {
-        if !whisperEngine.isModelCurrent {
+        let engine = activeEngine
+        if !engine.isModelCurrent {
             do {
-                try await whisperEngine.loadModel()
+                try await engine.loadModel()
             } catch {
                 state = .error("Transcription failed: \(error.localizedDescription)")
                 return
@@ -216,7 +228,7 @@ final class RecordingCoordinator: ObservableObject {
         let lang: String? = language == "auto" ? nil : language
 
         do {
-            let text = try await whisperEngine.transcribeStreaming(
+            let text = try await engine.transcribeStreaming(
                 audioSamples: recording.samples,
                 language: lang
             ) { [weak self] partial in

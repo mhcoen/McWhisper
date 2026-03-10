@@ -19,12 +19,15 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.12.0"),
+        .package(url: "https://github.com/ivan-digital/qwen3-asr-swift", branch: "main"),
     ],
     targets: [
         .executableTarget(
             name: "McWhisper",
             dependencies: [
                 .product(name: "WhisperKit", package: "WhisperKit"),
+                .product(name: "Qwen3ASR", package: "qwen3-asr-swift"),
+                .product(name: "ParakeetASR", package: "qwen3-asr-swift"),
             ],
             path: "Sources/McWhisper"
         ),

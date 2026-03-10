@@ -383,6 +383,28 @@ final class AudioEngine: ObservableObject {
         try file.write(from: buffer)
     }
 
+    /// Load a WAV file as 16 kHz mono float samples suitable for transcription.
+    static func loadWhisperSamples(from url: URL) throws -> [Float] {
+        let file = try AVAudioFile(forReading: url)
+        let floatFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 16000,
+            channels: 1,
+            interleaved: false
+        )!
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: floatFormat,
+            frameCapacity: AVAudioFrameCount(file.length)
+        ) else {
+            throw AudioEngineError.fileCreationFailed("Could not allocate read buffer")
+        }
+        try file.read(into: buffer)
+        guard let data = buffer.floatChannelData?[0] else {
+            return []
+        }
+        return Array(UnsafeBufferPointer(start: data, count: Int(buffer.frameLength)))
+    }
+
     /// Compute RMS of a slice of float samples.
     private static func rmsOfSlice(_ samples: UnsafePointer<Float>, offset: Int, length: Int) -> Float {
         var sum: Float = 0

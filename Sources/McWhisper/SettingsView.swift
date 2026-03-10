@@ -385,6 +385,13 @@ struct ModelRow: View {
                             .background(.secondary.opacity(0.2))
                             .clipShape(Capsule())
                     }
+                    Text(model.engine == .whisperKit ? "WhisperKit" : "Qwen3-ASR")
+                        .font(.caption2)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(model.engine == .whisperKit ? Color.blue.opacity(0.15) : Color.green.opacity(0.15))
+                        .clipShape(Capsule())
+                        .accessibilityIdentifier("engineBadge_\(model.id)")
                 }
                 Text(model.sizeLabel)
                     .font(.caption)
@@ -407,7 +414,7 @@ struct ModelRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.accentColor)
             }
-            if !model.isBundled {
+            if !model.isBundled && model.engine == .whisperKit {
                 modelActionButton
             }
         }

@@ -49,6 +49,12 @@ final class ModelDownloader: ObservableObject {
         for model in ModelCatalog.availableModels {
             if model.isBundled {
                 downloads[model.id] = .downloaded
+            } else if model.engine == .qwen3asr {
+                // qwen3-asr-swift models are downloaded on first use by the engine.
+                // Mark them as available so the user can select them.
+                if downloads[model.id] == nil {
+                    downloads[model.id] = .downloaded
+                }
             } else if let current = downloads[model.id], current.isDownloading {
                 // preserve active downloads
             } else {

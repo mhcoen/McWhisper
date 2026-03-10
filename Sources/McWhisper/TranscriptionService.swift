@@ -7,10 +7,13 @@ enum TranscriptionError: Error, Equatable {
     case emptyResult
 }
 
-final class WhisperKitEngine: ObservableObject {
+final class WhisperKitEngine: ObservableObject, TranscriptionEngine {
     @Published private(set) var modelState: ModelState = .unloaded
     private var whisperKit: WhisperKit?
     private var loadedModelID: String?
+
+    var isLoaded: Bool { modelState == .loaded }
+
 
     /// Load the model specified in AppSettings asynchronously.
     /// Uses locally downloaded models from ModelDownloader when available,
