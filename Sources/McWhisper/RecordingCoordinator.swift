@@ -40,9 +40,12 @@ final class RecordingCoordinator: ObservableObject {
     @Published private(set) var levelSamples: [Float] = Array(repeating: 0, count: 30)
 
     private var levelCancellable: AnyCancellable?
+    private var modelChangeCancellable: AnyCancellable?
 
     /// Whether the audio-level Combine subscription is active. Exposed for testing.
     var hasLevelSubscription: Bool { levelCancellable != nil }
+    /// Whether the model-change observer is active. Exposed for testing.
+    var hasModelChangeSubscription: Bool { modelChangeCancellable != nil }
     private var recordingStartTime: Date?
     private var hudDismissTask: Task<Void, Never>?
 
@@ -57,6 +60,16 @@ final class RecordingCoordinator: ObservableObject {
                             self.levelSamples.removeFirst(self.levelSamples.count - Self.levelBufferSize)
                         }
                     }
+                }
+        }
+
+        if modelChangeCancellable == nil {
+            modelChangeCancellable = UserDefaults.standard.publisher(for: \.selectedModelID)
+                .removeDuplicates()
+                .dropFirst() // skip initial value
+                .sink { [weak self] _ in
+                    guard let self else { return }
+                    self.handleModelChange()
                 }
         }
 
@@ -88,6 +101,18 @@ final class RecordingCoordinator: ObservableObject {
         hotkeyManager.stop()
         levelCancellable?.cancel()
         levelCancellable = nil
+        modelChangeCancellable?.cancel()
+        modelChangeCancellable = nil
+    }
+
+    // MARK: - Model switching
+
+    private func handleModelChange() {
+        let engine = activeEngine
+        guard !engine.isModelCurrent else { return }
+        Task {
+            try? await engine.loadModel()
+        }
     }
 
     // MARK: - Hotkey handlers
@@ -266,4 +291,12 @@ final class RecordingCoordinator: ObservableObject {
         }
     }
 
+}
+
+// MARK: - UserDefaults KVO key for model change observation
+
+extension UserDefaults {
+    @objc dynamic var selectedModelID: String {
+        string(forKey: AppSettings.Keys.selectedModelID) ?? AppSettings.defaultModelID
+    }
 }

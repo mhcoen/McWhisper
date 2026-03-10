@@ -54,6 +54,7 @@ struct RecordingCoordinatorTests {
         _ = coordinator.hotkeyManager
         _ = coordinator.audioEngine
         _ = coordinator.whisperEngine
+        _ = coordinator.qwen3Engine
         _ = coordinator.historyStore
         _ = coordinator.windowController
         _ = coordinator.pasteManager
@@ -190,6 +191,102 @@ struct RecordingCoordinatorTests {
         #expect(!coordinator.hasLevelSubscription)
         coordinator.stop()
         #expect(!coordinator.hasLevelSubscription)
+    }
+
+    // MARK: - Active engine selection
+
+    @MainActor
+    @Test("activeEngine returns WhisperKitEngine for WhisperKit models")
+    func activeEngineWhisperKit() {
+        let coordinator = RecordingCoordinator()
+        let saved = AppSettings.selectedModelID
+        defer { AppSettings.selectedModelID = saved }
+        AppSettings.selectedModelID = "openai_whisper-base"
+        let engine = coordinator.activeEngine
+        #expect(engine is WhisperKitEngine)
+    }
+
+    @MainActor
+    @Test("activeEngine returns Qwen3ASREngine for Qwen3 models")
+    func activeEngineQwen3() {
+        let coordinator = RecordingCoordinator()
+        let saved = AppSettings.selectedModelID
+        defer { AppSettings.selectedModelID = saved }
+        AppSettings.selectedModelID = "qwen3-asr-0.6b"
+        let engine = coordinator.activeEngine
+        #expect(engine is Qwen3ASREngine)
+    }
+
+    @MainActor
+    @Test("activeEngine returns Qwen3ASREngine for Parakeet models")
+    func activeEngineParakeet() {
+        let coordinator = RecordingCoordinator()
+        let saved = AppSettings.selectedModelID
+        defer { AppSettings.selectedModelID = saved }
+        AppSettings.selectedModelID = "parakeet-tdt-v3"
+        let engine = coordinator.activeEngine
+        #expect(engine is Qwen3ASREngine)
+    }
+
+    @MainActor
+    @Test("activeEngine falls back to WhisperKit for unknown model ID")
+    func activeEngineFallback() {
+        let coordinator = RecordingCoordinator()
+        let saved = AppSettings.selectedModelID
+        defer { AppSettings.selectedModelID = saved }
+        AppSettings.selectedModelID = "unknown-model-xyz"
+        let engine = coordinator.activeEngine
+        #expect(engine is WhisperKitEngine)
+    }
+
+    @MainActor
+    @Test("activeEngine switches when selectedModelID changes")
+    func activeEngineSwitches() {
+        let coordinator = RecordingCoordinator()
+        let saved = AppSettings.selectedModelID
+        defer { AppSettings.selectedModelID = saved }
+
+        AppSettings.selectedModelID = "openai_whisper-base"
+        #expect(coordinator.activeEngine is WhisperKitEngine)
+
+        AppSettings.selectedModelID = "qwen3-asr-1.7b"
+        #expect(coordinator.activeEngine is Qwen3ASREngine)
+
+        AppSettings.selectedModelID = "openai_whisper-large-v3"
+        #expect(coordinator.activeEngine is WhisperKitEngine)
+    }
+
+    // MARK: - Model change subscription lifecycle
+
+    @MainActor
+    @Test("start() creates model change subscription")
+    func startCreatesModelChangeSubscription() {
+        let coordinator = RecordingCoordinator()
+        #expect(!coordinator.hasModelChangeSubscription)
+        coordinator.start()
+        #expect(coordinator.hasModelChangeSubscription)
+        coordinator.stop()
+    }
+
+    @MainActor
+    @Test("stop() cancels model change subscription")
+    func stopCancelsModelChangeSubscription() {
+        let coordinator = RecordingCoordinator()
+        coordinator.start()
+        #expect(coordinator.hasModelChangeSubscription)
+        coordinator.stop()
+        #expect(!coordinator.hasModelChangeSubscription)
+    }
+
+    @MainActor
+    @Test("start() is idempotent for model change subscription")
+    func startIdempotentModelChangeSubscription() {
+        let coordinator = RecordingCoordinator()
+        coordinator.start()
+        coordinator.start()
+        #expect(coordinator.hasModelChangeSubscription)
+        coordinator.stop()
+        #expect(!coordinator.hasModelChangeSubscription)
     }
 
     @MainActor
