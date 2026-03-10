@@ -130,7 +130,7 @@ macOS 14+ desktop menu bar app in Swift/SwiftUI using SPM. This phase wires the 
 - [x] Update `RecordingCoordinator` to instantiate the correct `TranscriptionEngine` (`WhisperKitEngine` or `Qwen3ASREngine`) based on `AppSettings.selectedModelID` and the model's engine tag; switch engine when the selected model changes [feat: "Multiple local voice models"]
 - [x] Update `SettingsView` `ModelsSettingsTab` to guard model selection by engine availability (Apple Silicon check if needed) and display engine badge (e.g. "WhisperKit" / "Qwen3-ASR") alongside model rows [feat: "Multiple local voice models"]
 - [x] Add unit tests in `TranscriptionEngineTests.swift` verifying protocol conformance, `EngineTag` lookup for all catalog models, and `Qwen3ASREngine` initial state (modelState, isModelCurrent, no crash on init) [feat: "Multiple local voice models"]
-- [ ] Run full test suite with `swift test --disable-sandbox` and fix any failures before proceeding
+- [x] Run full test suite with `swift test --disable-sandbox` and fix any failures before proceeding
 - [ ] Wire up 13 documentation-example test(s) (markdown, shell, text)
   - [ ] Replace `run_example()` stub in test_doc_examples_generated.py with actual project imports
   - [ ] Run pytest and fix any failing doc-example tests
