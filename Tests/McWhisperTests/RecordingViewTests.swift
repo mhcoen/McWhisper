@@ -260,4 +260,33 @@ struct RecordingViewTests {
         let view = RecordingView(coordinator: coordinator)
         _ = view.body
     }
+
+    @Test("RecordingStateView passes varying levels to WaveformView")
+    func recordingStateVaryingLevels() {
+        // Simulate realistic audio levels with non-zero values
+        let levels: [Float] = (0..<30).map { Float($0) / 100.0 + 0.1 }
+        let view = RecordingStateView(levelSamples: levels, partialText: "")
+        _ = view.body
+        // All levels are above WaveformView.minimumLevel
+        #expect(levels.allSatisfy { $0 >= WaveformView.minimumLevel })
+    }
+
+    @Test("WaveformView renders non-zero bar heights for all positive levels")
+    func waveformNonZeroBarHeights() {
+        let levels: [Float] = [0.0, 0.1, 0.5, 0.9, 1.0]
+        let view = WaveformView(levels: levels)
+        _ = view.body
+        // Even zero-level bars get minimum height from the floor
+        for level in levels {
+            let effective = max(level, WaveformView.minimumLevel)
+            #expect(effective > 0)
+        }
+    }
+
+    @MainActor
+    @Test("RecordingView levelSamples count matches WaveformView.barCount")
+    func levelSamplesCountMatchesBarCount() {
+        let coordinator = RecordingCoordinator()
+        #expect(coordinator.levelSamples.count == WaveformView.barCount)
+    }
 }

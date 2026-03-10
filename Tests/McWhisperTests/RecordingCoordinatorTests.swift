@@ -128,6 +128,12 @@ struct RecordingCoordinatorTests {
         #expect(RecordingCoordinator.levelBufferSize == 30)
     }
 
+    @MainActor
+    @Test("levelBufferSize matches WaveformView.barCount")
+    func levelBufferMatchesWaveformBarCount() {
+        #expect(RecordingCoordinator.levelBufferSize == WaveformView.barCount)
+    }
+
     // MARK: - Level subscription lifecycle
 
     @MainActor
