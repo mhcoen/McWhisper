@@ -66,4 +66,75 @@ struct ModelCatalogTests {
         #expect(a == b)
         #expect(a != c)
     }
+
+    // MARK: - ModelEngine tests
+
+    @Test("ModelEngine has two cases")
+    func modelEngineCases() {
+        let all = ModelEngine.allCases
+        #expect(all.count == 2)
+        #expect(all.contains(.whisperKit))
+        #expect(all.contains(.qwen3asr))
+    }
+
+    @Test("ModelEngine raw values")
+    func modelEngineRawValues() {
+        #expect(ModelEngine.whisperKit.rawValue == "whisperKit")
+        #expect(ModelEngine.qwen3asr.rawValue == "qwen3asr")
+    }
+
+    @Test("ModelEngine equatable conformance")
+    func modelEngineEquatable() {
+        #expect(ModelEngine.whisperKit == ModelEngine.whisperKit)
+        #expect(ModelEngine.whisperKit != ModelEngine.qwen3asr)
+    }
+
+    @Test("Bundled model uses whisperKit engine")
+    func bundledModelEngine() {
+        #expect(ModelCatalog.bundledModel.engine == .whisperKit)
+    }
+
+    @Test("Every model has an engine tag")
+    func allModelsHaveEngine() {
+        for model in ModelCatalog.availableModels {
+            #expect(ModelEngine.allCases.contains(model.engine))
+        }
+    }
+
+    @Test("WhisperKit models use whisperKit engine")
+    func whisperKitModelsEngine() {
+        let whisperModels = ModelCatalog.availableModels.filter { $0.id.hasPrefix("openai_whisper-") }
+        #expect(!whisperModels.isEmpty)
+        for model in whisperModels {
+            #expect(model.engine == .whisperKit)
+        }
+    }
+
+    @Test("Qwen3-ASR and Parakeet models use qwen3asr engine")
+    func qwen3asrModelsEngine() {
+        let qwenModels = ModelCatalog.availableModels.filter { $0.engine == .qwen3asr }
+        #expect(!qwenModels.isEmpty)
+        for model in qwenModels {
+            #expect(!model.id.hasPrefix("openai_whisper-"))
+        }
+    }
+
+    @Test("ModelInfo default engine is whisperKit")
+    func modelInfoDefaultEngine() {
+        let model = ModelInfo(id: "test", displayName: "Test", sizeLabel: "1 MB", isBundled: false)
+        #expect(model.engine == .whisperKit)
+    }
+
+    @Test("ModelInfo with explicit qwen3asr engine")
+    func modelInfoExplicitEngine() {
+        let model = ModelInfo(id: "test", displayName: "Test", sizeLabel: "1 MB", isBundled: false, engine: .qwen3asr)
+        #expect(model.engine == .qwen3asr)
+    }
+
+    @Test("ModelInfo engine affects equality")
+    func modelInfoEngineEquality() {
+        let a = ModelInfo(id: "x", displayName: "X", sizeLabel: "1 MB", isBundled: false, engine: .whisperKit)
+        let b = ModelInfo(id: "x", displayName: "X", sizeLabel: "1 MB", isBundled: false, engine: .qwen3asr)
+        #expect(a != b)
+    }
 }
