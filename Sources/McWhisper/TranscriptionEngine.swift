@@ -1,7 +1,17 @@
 import Foundation
 
+/// Lifecycle state for a transcription engine's model.
+enum ModelState: Equatable {
+    case unloaded
+    case loading
+    case loaded
+}
+
 /// Common interface for local speech-to-text engines (WhisperKit, Qwen3-ASR, Parakeet TDT).
 protocol TranscriptionEngine: AnyObject {
+    /// Current model lifecycle state.
+    var modelState: ModelState { get }
+
     /// Whether the engine has a model loaded and ready for transcription.
     var isLoaded: Bool { get }
 

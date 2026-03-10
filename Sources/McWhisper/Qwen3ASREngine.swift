@@ -9,19 +9,13 @@ final class Qwen3ASREngine: ObservableObject, TranscriptionEngine {
         case parakeet
     }
 
-    @Published private(set) var engineState: EngineState = .unloaded
-
-    enum EngineState: Equatable {
-        case unloaded
-        case loading
-        case loaded
-    }
+    @Published private(set) var modelState: ModelState = .unloaded
 
     private var qwen3Model: Qwen3ASRModel?
     private var parakeetModel: ParakeetASRModel?
     private var loadedModelID: String?
 
-    var isLoaded: Bool { engineState == .loaded }
+    var isLoaded: Bool { modelState == .loaded }
 
     var isModelCurrent: Bool {
         loadedModelID == AppSettings.selectedModelID && isLoaded
@@ -41,7 +35,7 @@ final class Qwen3ASREngine: ObservableObject, TranscriptionEngine {
             throw TranscriptionError.modelNotLoaded
         }
 
-        engineState = .loading
+        modelState = .loading
         do {
             let kind = Self.engineKind(for: modelID)
             switch kind {
@@ -55,9 +49,9 @@ final class Qwen3ASREngine: ObservableObject, TranscriptionEngine {
                 parakeetModel = model
             }
             loadedModelID = modelID
-            engineState = .loaded
+            modelState = .loaded
         } catch {
-            engineState = .unloaded
+            modelState = .unloaded
             throw error
         }
     }

@@ -8,7 +8,7 @@ enum TranscriptionError: Error, Equatable {
 }
 
 final class WhisperKitEngine: ObservableObject, TranscriptionEngine {
-    @Published private(set) var modelState: ModelState = .unloaded
+    @Published private(set) var modelState: McWhisper.ModelState = .unloaded
     private var whisperKit: WhisperKit?
     private var loadedModelID: String?
 
