@@ -39,7 +39,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     nonisolated func windowWillClose(_ notification: Notification) {
-        Task { @MainActor in
+        DispatchQueue.main.async {
             if let hotkeyManager = self.hotkeyManager {
                 do {
                     try hotkeyManager.start()

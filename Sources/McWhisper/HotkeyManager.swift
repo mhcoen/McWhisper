@@ -26,6 +26,8 @@ final class HotkeyManager: ObservableObject {
     private var teardownSemaphore: DispatchSemaphore?
     private let stateLock = NSLock()
     private var startupError: HotkeyManagerError?
+    /// Tap-thread mirror of `isKeyDown`, protected by `stateLock`.
+    private var tapIsKeyDown = false
 
     deinit {
         stop()
@@ -89,6 +91,7 @@ final class HotkeyManager: ObservableObject {
         runLoopSource = nil
         tapRunLoop = nil
         tapThread = nil
+        stateLock.withLock { tapIsKeyDown = false }
         isKeyDown = false
     }
 
@@ -181,23 +184,31 @@ final class HotkeyManager: ObservableObject {
         }
         let eventKeyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
         let isPressed = isModifierPressed(rawFlags: event.flags.rawValue)
-        if eventKeyCode == keyCode && isPressed && !isKeyDown {
+        if eventKeyCode == keyCode && isPressed {
+            let shouldFire = stateLock.withLock {
+                guard !tapIsKeyDown else { return false }
+                tapIsKeyDown = true
+                return true
+            }
+            guard shouldFire else { return false }
+            let callback = stateLock.withLock { onKeyDown }
             print("[McWhisper] hotkey down keyCode=\(eventKeyCode) flags=\(event.flags.rawValue)")
             DispatchQueue.main.async { [self] in
                 isKeyDown = true
+                callback?()
             }
-            print("[McWhisper] invoke onKeyDown callbackNil=\(onKeyDown == nil)")
-            onKeyDown?()
             return true
         }
 
-        if !isPressed && isKeyDown {
+        let wasDown = stateLock.withLock { tapIsKeyDown }
+        if !isPressed && wasDown {
+            stateLock.withLock { tapIsKeyDown = false }
+            let callback = stateLock.withLock { onKeyUp }
             print("[McWhisper] hotkey up keyCode=\(eventKeyCode) flags=\(event.flags.rawValue)")
             DispatchQueue.main.async { [self] in
                 isKeyDown = false
+                callback?()
             }
-            print("[McWhisper] invoke onKeyUp callbackNil=\(onKeyUp == nil)")
-            onKeyUp?()
             return true
         }
 
@@ -208,32 +219,52 @@ final class HotkeyManager: ObservableObject {
     private func handleRegularEvent(type: CGEventType, event: CGEvent) -> Bool {
         switch type {
         case .keyDown:
-            guard matches(event), !isKeyDown else { return false }
+            guard matches(event) else { return false }
+            let shouldFire = stateLock.withLock {
+                guard !tapIsKeyDown else { return false }
+                tapIsKeyDown = true
+                return true
+            }
+            guard shouldFire else { return false }
+            let callback = stateLock.withLock { onKeyDown }
+            print("[McWhisper] invoke onKeyDown callbackNil=\(callback == nil)")
             DispatchQueue.main.async { [self] in
                 isKeyDown = true
+                callback?()
             }
-            print("[McWhisper] invoke onKeyDown callbackNil=\(onKeyDown == nil)")
-            onKeyDown?()
             return true
 
         case .keyUp:
-            guard matches(event), isKeyDown else { return false }
+            guard matches(event) else { return false }
+            let shouldFire = stateLock.withLock {
+                guard tapIsKeyDown else { return false }
+                tapIsKeyDown = false
+                return true
+            }
+            guard shouldFire else { return false }
+            let callback = stateLock.withLock { onKeyUp }
+            print("[McWhisper] invoke onKeyUp callbackNil=\(callback == nil)")
             DispatchQueue.main.async { [self] in
                 isKeyDown = false
+                callback?()
             }
-            print("[McWhisper] invoke onKeyUp callbackNil=\(onKeyUp == nil)")
-            onKeyUp?()
             return true
 
         case .flagsChanged:
             let relevantMask: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand]
             let currentMods = event.flags.intersection(relevantMask).rawValue
-            guard isKeyDown, currentMods != UInt64(modifiers) else { return false }
+            let shouldFire = stateLock.withLock {
+                guard tapIsKeyDown, currentMods != UInt64(modifiers) else { return false }
+                tapIsKeyDown = false
+                return true
+            }
+            guard shouldFire else { return false }
+            let callback = stateLock.withLock { onKeyUp }
+            print("[McWhisper] invoke onKeyUp callbackNil=\(callback == nil)")
             DispatchQueue.main.async { [self] in
                 isKeyDown = false
+                callback?()
             }
-            print("[McWhisper] invoke onKeyUp callbackNil=\(onKeyUp == nil)")
-            onKeyUp?()
             return true
 
         default:

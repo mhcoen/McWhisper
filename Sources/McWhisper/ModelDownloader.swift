@@ -169,6 +169,8 @@ final class ModelDownloader: ObservableObject {
             downloads[modelID] = .notDownloaded
             throw CancellationError()
         } catch {
+            let modelDir = modelsDirectory.appendingPathComponent(modelID)
+            try? FileManager.default.removeItem(at: modelDir)
             if downloads[modelID]?.isDownloading == true {
                 downloads[modelID] = .failed(error.localizedDescription)
             }

@@ -29,19 +29,33 @@ final class HistoryStore: ObservableObject {
     }
 
     func deleteRecord(id: UUID) {
+        if let record = records.first(where: { $0.id == id }) {
+            deleteAudioFile(for: record)
+        }
         records.removeAll { $0.id == id }
         save()
     }
 
     func deleteRecords(ids: Set<UUID>) {
         guard !ids.isEmpty else { return }
+        for record in records where ids.contains(record.id) {
+            deleteAudioFile(for: record)
+        }
         records.removeAll { ids.contains($0.id) }
         save()
     }
 
     func clearAll() {
+        for record in records {
+            deleteAudioFile(for: record)
+        }
         records.removeAll()
         save()
+    }
+
+    private func deleteAudioFile(for record: TranscriptionRecord) {
+        guard let url = record.audioFileURL else { return }
+        try? FileManager.default.removeItem(at: url)
     }
 
     // MARK: - Persistence
