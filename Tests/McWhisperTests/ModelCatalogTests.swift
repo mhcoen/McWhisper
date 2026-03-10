@@ -137,4 +137,72 @@ struct ModelCatalogTests {
         let b = ModelInfo(id: "x", displayName: "X", sizeLabel: "1 MB", isBundled: false, engine: .qwen3asr)
         #expect(a != b)
     }
+
+    // MARK: - Parakeet TDT and Qwen3-ASR model entries
+
+    @Test("Qwen3-ASR 0.6B entry has correct metadata")
+    func qwen3asr06bEntry() {
+        let model = ModelCatalog.model(for: "qwen3-asr-0.6b")
+        #expect(model != nil)
+        #expect(model?.displayName == "Qwen3-ASR 0.6B")
+        #expect(model?.sizeLabel == "~350 MB")
+        #expect(model?.isBundled == false)
+        #expect(model?.engine == .qwen3asr)
+    }
+
+    @Test("Qwen3-ASR 1.7B entry has correct metadata")
+    func qwen3asr17bEntry() {
+        let model = ModelCatalog.model(for: "qwen3-asr-1.7b")
+        #expect(model != nil)
+        #expect(model?.displayName == "Qwen3-ASR 1.7B")
+        #expect(model?.sizeLabel == "~900 MB")
+        #expect(model?.isBundled == false)
+        #expect(model?.engine == .qwen3asr)
+    }
+
+    @Test("Parakeet TDT v3 entry has correct metadata")
+    func parakeetTdtV3Entry() {
+        let model = ModelCatalog.model(for: "parakeet-tdt-v3")
+        #expect(model != nil)
+        #expect(model?.displayName == "Parakeet TDT v3")
+        #expect(model?.sizeLabel == "~315 MB")
+        #expect(model?.isBundled == false)
+        #expect(model?.engine == .qwen3asr)
+    }
+
+    // MARK: - HuggingFace model ID mapping
+
+    @Test("huggingFaceModelID returns correct slug for Qwen3-ASR 0.6B")
+    func hfSlugQwen3asr06b() {
+        #expect(ModelCatalog.huggingFaceModelID(for: "qwen3-asr-0.6b") == "aufklarer/Qwen3-ASR-0.6B-MLX-4bit")
+    }
+
+    @Test("huggingFaceModelID returns correct slug for Qwen3-ASR 1.7B")
+    func hfSlugQwen3asr17b() {
+        #expect(ModelCatalog.huggingFaceModelID(for: "qwen3-asr-1.7b") == "aufklarer/Qwen3-ASR-1.7B-MLX-8bit")
+    }
+
+    @Test("huggingFaceModelID returns correct slug for Parakeet TDT v3")
+    func hfSlugParakeetTdtV3() {
+        #expect(ModelCatalog.huggingFaceModelID(for: "parakeet-tdt-v3") == "aufklarer/Parakeet-TDT-v3-CoreML-INT4")
+    }
+
+    @Test("huggingFaceModelID returns nil for WhisperKit models")
+    func hfSlugWhisperKit() {
+        #expect(ModelCatalog.huggingFaceModelID(for: "openai_whisper-base") == nil)
+        #expect(ModelCatalog.huggingFaceModelID(for: "openai_whisper-large-v3") == nil)
+    }
+
+    @Test("huggingFaceModelID returns nil for unknown ID")
+    func hfSlugUnknown() {
+        #expect(ModelCatalog.huggingFaceModelID(for: "nonexistent") == nil)
+    }
+
+    @Test("All qwen3asr engine models have a HuggingFace slug")
+    func allQwen3asrModelsHaveHfSlug() {
+        let qwenModels = ModelCatalog.availableModels.filter { $0.engine == .qwen3asr }
+        for model in qwenModels {
+            #expect(ModelCatalog.huggingFaceModelID(for: model.id) != nil, "Missing HF slug for \(model.id)")
+        }
+    }
 }
