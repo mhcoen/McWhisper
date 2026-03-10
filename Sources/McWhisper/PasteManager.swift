@@ -6,13 +6,26 @@ final class PasteManager {
     /// The frontmost application captured before recording began.
     private(set) var targetApplication: NSRunningApplication?
 
+    var targetDescription: String {
+        describe(targetApplication)
+    }
+
     /// Captures the current frontmost application for later paste targeting.
     func captureTarget() {
-        targetApplication = NSWorkspace.shared.frontmostApplication
+        let candidate = NSWorkspace.shared.frontmostApplication
+        if let candidate, candidate.processIdentifier == NSRunningApplication.current.processIdentifier {
+            print("[McWhisper] captureTarget ignored self app=\(describe(candidate))")
+            targetApplication = nil
+            return
+        }
+
+        targetApplication = candidate
+        print("[McWhisper] captureTarget app=\(describe(candidate))")
     }
 
     /// Clears the captured target application.
     func clearTarget() {
+        print("[McWhisper] clearTarget app=\(describe(targetApplication))")
         targetApplication = nil
     }
 
@@ -25,10 +38,17 @@ final class PasteManager {
         pasteboard.setString(text, forType: .string)
 
         guard let app = targetApplication, !app.isTerminated else {
+            print("[McWhisper] paste fallback target=\(describe(targetApplication))")
             return false
         }
 
-        app.activate()
+        if app.processIdentifier == NSRunningApplication.current.processIdentifier {
+            print("[McWhisper] paste refused target=self")
+            return false
+        }
+
+        print("[McWhisper] paste target=\(describe(app))")
+        _ = app.activate(options: [.activateIgnoringOtherApps])
 
         let source = CGEventSource(stateID: .hidSystemState)
         // keyCode 9 = 'v'
@@ -36,8 +56,17 @@ final class PasteManager {
         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false)
         keyDown?.flags = .maskCommand
         keyUp?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-        keyUp?.post(tap: .cghidEventTap)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(75)) {
+            keyDown?.post(tap: .cghidEventTap)
+            keyUp?.post(tap: .cghidEventTap)
+        }
         return true
+    }
+
+    private func describe(_ app: NSRunningApplication?) -> String {
+        guard let app else { return "nil" }
+        let name = app.localizedName ?? "unknown"
+        let bundleID = app.bundleIdentifier ?? "no-bundle-id"
+        return "\(name) [\(bundleID)] pid=\(app.processIdentifier)"
     }
 }

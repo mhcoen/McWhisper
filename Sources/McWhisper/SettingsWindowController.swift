@@ -2,17 +2,21 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class SettingsWindowController {
+final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
 
     private var window: NSWindow?
+    private var hotkeyManager: HotkeyManager?
 
-    func show() {
+    func show(hotkeyManager: HotkeyManager? = nil) {
         if let window, window.isVisible {
             window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
             return
         }
+
+        self.hotkeyManager = hotkeyManager
+        hotkeyManager?.stop()
 
         let view = SettingsView()
         let hostingView = NSHostingView(rootView: view)
@@ -28,8 +32,18 @@ final class SettingsWindowController {
         window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
+        window.delegate = self
         window.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
         self.window = window
+    }
+
+    nonisolated func windowWillClose(_ notification: Notification) {
+        Task { @MainActor in
+            if let hotkeyManager = self.hotkeyManager {
+                try? hotkeyManager.start()
+                self.hotkeyManager = nil
+            }
+        }
     }
 }

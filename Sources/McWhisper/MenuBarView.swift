@@ -23,7 +23,7 @@ struct MenuBarView: View {
         }
 
         Button("Settings…") {
-            SettingsWindowController.shared.show()
+            SettingsWindowController.shared.show(hotkeyManager: coordinator.hotkeyManager)
         }
 
         Divider()

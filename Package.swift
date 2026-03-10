@@ -7,6 +7,16 @@ let package = Package(
     platforms: [
         .macOS(.v14)
     ],
+    products: [
+        .executable(
+            name: "RightCommandProbe",
+            targets: ["RightCommandProbe"]
+        ),
+        .executable(
+            name: "TranscriptionProbe",
+            targets: ["TranscriptionProbe"]
+        ),
+    ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.12.0"),
     ],
@@ -17,6 +27,17 @@ let package = Package(
                 .product(name: "WhisperKit", package: "WhisperKit"),
             ],
             path: "Sources/McWhisper"
+        ),
+        .executableTarget(
+            name: "RightCommandProbe",
+            path: "Sources/RightCommandProbe"
+        ),
+        .executableTarget(
+            name: "TranscriptionProbe",
+            dependencies: [
+                .product(name: "WhisperKit", package: "WhisperKit"),
+            ],
+            path: "Sources/TranscriptionProbe"
         ),
         .testTarget(
             name: "McWhisperTests",

@@ -8,6 +8,12 @@ CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 BUNDLE_ID="com.mcwhisper.app"
 
+if [ "${MCWHISPER_APPSHOT_RECORDING_PANEL:-0}" = "1" ]; then
+    LSUIELEMENT_VALUE="<false/>"
+else
+    LSUIELEMENT_VALUE="<true/>"
+fi
+
 # Build release binary
 echo "Building McWhisper..."
 swift build -c release --disable-sandbox --package-path "$PROJECT_DIR"
@@ -44,12 +50,14 @@ cat > "$CONTENTS_DIR/Info.plist" << 'PLIST'
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>
-    <true/>
+    __LSUIELEMENT_VALUE__
     <key>NSMicrophoneUsageDescription</key>
     <string>McWhisper needs microphone access for speech-to-text transcription.</string>
 </dict>
 </plist>
 PLIST
+
+perl -0pi -e "s|__LSUIELEMENT_VALUE__|$LSUIELEMENT_VALUE|g" "$CONTENTS_DIR/Info.plist"
 
 # Ad-hoc codesign
 echo "Codesigning..."
@@ -60,8 +68,12 @@ killall McWhisper 2>/dev/null || true
 
 # Launch the app
 echo "Launching McWhisper.app..."
-"$MACOS_DIR/McWhisper" &
-disown
+if [ "${MCWHISPER_APPSHOT_RECORDING_PANEL:-0}" = "1" ]; then
+    open -na "$APP_BUNDLE" --args --appshot-recording-panel "$@"
+else
+    "$MACOS_DIR/McWhisper" "$@" &
+    disown
+fi
 
 # Wait up to 5 seconds for the app to appear
 for i in 1 2 3 4 5; do

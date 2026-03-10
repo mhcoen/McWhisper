@@ -53,6 +53,11 @@ struct RecordingStateView: View {
                     .font(.system(.body, design: .rounded))
                     .lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text("Listening...")
+                    .font(.system(.body, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(12)
@@ -168,4 +173,3 @@ struct ErrorStateView: View {
         .padding(12)
     }
 }
-

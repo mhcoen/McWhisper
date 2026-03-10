@@ -1,7 +1,3 @@
-Here is the PLAN.md content — please save it to `/Users/mhcoen/proj/whisper-app/PLAN.md`:
-
----
-
 # McWhisper — Phase 1: Core
 
 macOS 14+ menu bar app built with Swift/SwiftUI and Swift Package Manager. Apple Silicon required. No Dock icon. Local-only transcription via WhisperKit (Whisper models) and qwen3-asr-swift (Parakeet TDT / Qwen3-ASR). No cloud APIs. No external dependencies beyond Apple frameworks and those two packages.
@@ -66,11 +62,11 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
 
 - [x] Implement auto-paste and clipboard fallback
   - [x] Create `PasteManager.swift`; before push-to-talk key-down, capture the frontmost `NSRunningApplication` via `NSWorkspace.shared.frontmostApplication`
-  - [x] After transcription, re-focus the captured app with `app.activate(options: .activateIgnoringOtherApps)`, write text to `NSPasteboard.general`, then synthesize `⌘V` via `CGEvent` keystroke
+  - [x] After transcription, re-focus the captured app with `app.activate(options: .activateIgnoringOtherApps)`, write text to `NSPasteboard.general`, then synthesize Cmd+V via `CGEvent` keystroke
   - [x] If paste fails (no frontmost app captured or app no longer running), copy to clipboard and show a brief HUD notification in `RecordingView` ("Copied to clipboard")
 
 - [x] Build menu bar menu
-  - [x] Expand `MenuBarExtra` menu with sections: current mode selector (radio group), separator, "Recording History…" (opens history window), "Settings…" (opens settings window), separator, "Quit"
+  - [x] Expand `MenuBarExtra` menu with sections: current mode selector (radio group), separator, "Recording History..." (opens history window), "Settings..." (opens settings window), separator, "Quit"
   - [x] Show a pulsing red dot on the menu bar icon while recording using a `MenuBarExtra` label view that reacts to `AudioEngine.isRecording`
 
 - [x] Build settings window
@@ -84,7 +80,7 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
   - [x] Multi-select delete with confirmation alert; persist deletions to `HistoryStore`
 
 - [x] Wire end-to-end pipeline and integration test
-  - [x] Connect hotkey → audio capture → VAD → WhisperKit streaming transcription → mode post-processing → auto-paste, updating `RecordingView` state at each step
+  - [x] Connect hotkey -> audio capture -> VAD -> WhisperKit streaming transcription -> mode post-processing -> auto-paste, updating `RecordingView` state at each step
   - [x] Save completed transcription to `HistoryStore` including audio file path, timestamps, model, and mode
 
 - [x] Polish, permissions flow, and launch-at-login
@@ -107,20 +103,36 @@ Build output is a signed `.app` bundle produced by `run.sh`. The app must launch
 
 ---
 
-The plan has **15 checklist items** covering the full Phase 1 pipeline. Key design decisions reflected in the plan:
-
-- **Scaffold first** — `run.sh` and a launchable `.app` bundle are working from item 1 onward.
-- **Data model before UI** — settings and records are defined before any window code depends on them.
-- **Audio → VAD → Transcription → Post-process → Paste** — each stage is its own item so failures are isolated.
-- **WhisperKit streaming** is wired for real-time partial text display, not just batch result.
-- **`CGEventTap` hotkey** and **`CGEvent` paste** are called out explicitly so the builder knows the system API path.
-- **Floating `NSPanel`** (non-activating) keeps focus in the target app — critical for the paste flow to work correctly.
-
----
-
 ## Implemented but not originally planned
 
 - [x] Create `ModelCatalog.swift` enum listing available Whisper models with `bundledModelID`, `availableModels`, `downloadableModels`, and `model(for:)` lookup; `openai_whisper-base` as the single bundled default
 - [x] Create `MicrophonePermission.swift` helper with static `status` and async `request()` wrapping `AVCaptureDevice` audio authorization
 - [x] Create `RecordingCoordinator.swift` (`@MainActor ObservableObject`) orchestrating the full push-to-talk flow: owns `HotkeyManager`, `AudioEngine`, `WhisperKitEngine`, `HistoryStore`, and `RecordingWindowController`; manages state machine (idle/recording/transcribing/error), rolling level buffer, and inline paste via `NSPasteboard` + `CGEvent` Cmd+V
 - [x] Add comprehensive unit test suite: `McWhisperTests`, `AppSettingsTests`, `TranscriptionServiceTests`, `TranscriptionModeTests`, `HistoryStoreTests`, `AudioEngineTests`, `HotkeyManagerTests`, `ModelCatalogTests`, `MicrophonePermissionTests`, `RecordingViewTests`, `RecordingWindowControllerTests`, `RecordingCoordinatorTests`, `BundleTests`, `AppBundleTests`
+
+---
+
+# McWhisper — Phase 2: Parakeet TDT and Qwen3-ASR engines
+
+macOS 14+ desktop menu bar app in Swift/SwiftUI using SPM. This phase wires the qwen3-asr-swift package into a new `TranscriptionEngine` protocol, adds Parakeet TDT and Qwen3-ASR models to `ModelCatalog`, routes transcription to the correct backend based on the selected model, and fixes the audio level pipeline so the waveform animates during real push-to-talk recording. No cloud APIs; all inference is local, Apple Silicon required.
+
+- [ ] Fix audio level pipeline so waveform animates during real push-to-talk recording [fix: "waveform shows static dashes during real recording (works in panel preview but not during actual push-to-talk recording, audio levels not flowing to view)"]
+  - [ ] Trace `AudioEngine.$audioLevel` → `RecordingCoordinator.levelSamples` Combine subscription; confirm tap is installed before `startRecording()` emits levels and that the subscription is not cancelled on key-up before the UI reads it
+  - [ ] Verify `RecordingView` observes `coordinator.levelSamples` and that `WaveformView` receives non-zero values during recording; add a debug `print` temporarily if needed to confirm data flow
+  - [ ] Fix the root cause (e.g. subscription lifetime, wrong thread, buffer reset timing) and remove any debug logging
+- [ ] Add `qwen3-asr-swift` as an explicit SPM package dependency in `Package.swift` if not already declared, and confirm it builds with `swift build --disable-sandbox` [fix: "qwen3-asr-swift is a package dependency in Package.swift but never wired into ModelCatalog or TranscriptionService, no Parakeet/Qwen3-ASR models available to the user"]
+- [ ] Define `TranscriptionEngine` protocol in a new file `Sources/McWhisper/TranscriptionEngine.swift` with `loadModel() async throws`, `transcribe(audioURL:language:) async throws -> String`, `transcribeStreaming(audioURL:language:onPartial:) async throws -> String`, `var modelState: ModelState { get }`, and `var isModelCurrent: Bool { get }` [feat: "Multiple local voice models"]
+- [ ] Refactor `WhisperKitEngine` in `TranscriptionService.swift` to conform to `TranscriptionEngine` protocol; keep all existing behaviour intact [feat: "Multiple local voice models"]
+- [ ] Add an `EngineTag` enum (or property on `ModelInfo`) to `ModelCatalog.swift` with cases `.whisperKit` and `.qwen3asr`, and annotate every existing model entry with its engine tag [feat: "Multiple local voice models"]
+- [ ] Add Parakeet TDT and Qwen3-ASR model entries to `ModelCatalog.swift` (display names, size labels, HuggingFace repo slugs, `isBundled: false`, engine tag `.qwen3asr`) [feat: "Multiple local voice models"]
+- [ ] Implement `Qwen3ASREngine` in a new file `Sources/McWhisper/Qwen3ASREngine.swift` conforming to `TranscriptionEngine`, wrapping the qwen3-asr-swift API for `loadModel`, `transcribe`, and `transcribeStreaming` (poll partial results if the library lacks a callback) [feat: "Multiple local voice models"]
+- [ ] Update `ModelDownloader` to resolve the correct HuggingFace repo slug per engine tag when downloading Parakeet TDT or Qwen3-ASR models, so `downloadModel(_:)` targets the right repository [feat: "Multiple local voice models"]
+- [ ] Update `RecordingCoordinator` to instantiate the correct `TranscriptionEngine` (`WhisperKitEngine` or `Qwen3ASREngine`) based on `AppSettings.selectedModelID` and the model's engine tag; switch engine when the selected model changes [feat: "Multiple local voice models"]
+- [ ] Update `SettingsView` `ModelsSettingsTab` to guard model selection by engine availability (Apple Silicon check if needed) and display engine badge (e.g. "WhisperKit" / "Qwen3-ASR") alongside model rows [feat: "Multiple local voice models"]
+- [ ] Add unit tests in `TranscriptionEngineTests.swift` verifying protocol conformance, `EngineTag` lookup for all catalog models, and `Qwen3ASREngine` initial state (modelState, isModelCurrent, no crash on init) [feat: "Multiple local voice models"]
+- [ ] Run full test suite with `swift test --disable-sandbox` and fix any failures before proceeding
+- [ ] Wire up 13 documentation-example test(s) (markdown, shell, text)
+  - [ ] Replace `run_example()` stub in test_doc_examples_generated.py with actual project imports
+  - [ ] Run pytest and fix any failing doc-example tests
+- [ ] Update `run.sh` if any new build flags or plist keys are required, then do an end-to-end smoke test: build, launch, open Settings → Models, confirm Parakeet TDT and Qwen3-ASR entries appear, download one, select it, record a short phrase, and verify a transcript is returned without error [feat: "Multiple local voice models"]
+

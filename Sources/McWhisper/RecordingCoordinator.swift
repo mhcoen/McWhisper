@@ -34,23 +34,33 @@ final class RecordingCoordinator: ObservableObject {
     private var hudDismissTask: Task<Void, Never>?
 
     func start() {
-        levelCancellable = audioEngine.$audioLevel
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] level in
-                guard let self, self.state == .recording else { return }
-                withAnimation(.linear(duration: 0.05)) {
-                    self.levelSamples.append(level)
-                    if self.levelSamples.count > Self.levelBufferSize {
-                        self.levelSamples.removeFirst(self.levelSamples.count - Self.levelBufferSize)
+        if levelCancellable == nil {
+            levelCancellable = audioEngine.$audioLevel
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] level in
+                    guard let self, self.state == .recording else { return }
+                    withAnimation(.linear(duration: 0.05)) {
+                        self.levelSamples.append(level)
+                        if self.levelSamples.count > Self.levelBufferSize {
+                            self.levelSamples.removeFirst(self.levelSamples.count - Self.levelBufferSize)
+                        }
                     }
                 }
-            }
+        }
 
         hotkeyManager.onKeyDown = { [weak self] in
-            self?.handleKeyDown()
+            print("[McWhisper] onKeyDown closure selfNil=\(self == nil)")
+            DispatchQueue.main.async { [weak self] in
+                print("[McWhisper] onKeyDown main selfNil=\(self == nil)")
+                self?.handleKeyDown()
+            }
         }
         hotkeyManager.onKeyUp = { [weak self] in
-            self?.handleKeyUp()
+            print("[McWhisper] onKeyUp closure selfNil=\(self == nil)")
+            DispatchQueue.main.async { [weak self] in
+                print("[McWhisper] onKeyUp main selfNil=\(self == nil)")
+                self?.handleKeyUp()
+            }
         }
 
         if HotkeyManager.hasAccessibilityPermission {
@@ -63,9 +73,7 @@ final class RecordingCoordinator: ObservableObject {
             HotkeyManager.requestAccessibilityPermission()
         }
 
-        Task {
-            try? await whisperEngine.loadModel()
-        }
+        // Model loads lazily on first transcription.
     }
 
     func stop() {
@@ -77,6 +85,7 @@ final class RecordingCoordinator: ObservableObject {
     // MARK: - Hotkey handlers
 
     private func handleKeyDown() {
+        print("[McWhisper] handleKeyDown state=\(String(describing: state))")
         switch state {
         case .error:
             state = .idle
@@ -87,29 +96,36 @@ final class RecordingCoordinator: ObservableObject {
             return
         }
 
-        do {
-            hudDismissTask?.cancel()
-            hudMessage = ""
-            pasteManager.captureTarget()
-            levelSamples = Array(repeating: 0, count: Self.levelBufferSize)
-            rawText = ""
-            processedText = ""
-            try audioEngine.startRecording()
-            recordingStartTime = Date()
-            state = .recording
-            windowController.show(coordinator: self)
-        } catch {
-            state = .error("Recording failed: \(error.localizedDescription)")
+        hudDismissTask?.cancel()
+        hudMessage = ""
+        pasteManager.captureTarget()
+        levelSamples = Array(repeating: 0, count: Self.levelBufferSize)
+        rawText = ""
+        processedText = ""
+        partialText = ""
+        state = .recording
+        windowController.show(coordinator: self)
+
+        Task { @MainActor in
+            do {
+                try audioEngine.startRecording()
+                recordingStartTime = Date()
+            } catch {
+                state = .error("Recording failed: \(error.localizedDescription)")
+            }
         }
     }
 
     private func handleKeyUp() {
+        print("[McWhisper] handleKeyUp state=\(String(describing: state))")
         guard state == .recording else { return }
 
         let duration = recordingStartTime.map { Date().timeIntervalSince($0) } ?? 0
-        let audioURL: URL
+        let recording: RecordedAudio
         do {
-            audioURL = try audioEngine.stopRecording()
+            print("[McWhisper] stopRecording: begin")
+            recording = try audioEngine.stopRecording()
+            print("[McWhisper] stopRecording: success samples=\(recording.samples.count)")
         } catch {
             state = .error("Stop recording failed: \(error.localizedDescription)")
             return
@@ -119,7 +135,7 @@ final class RecordingCoordinator: ObservableObject {
         partialText = ""
 
         Task {
-            await transcribeAndPaste(audioURL: audioURL, duration: duration)
+            await transcribeAndPaste(recording: recording, duration: duration)
         }
     }
 
@@ -146,12 +162,12 @@ final class RecordingCoordinator: ObservableObject {
         HistoryStore.defaultDirectory.appendingPathComponent("Audio", isDirectory: true)
     }()
 
-    static func saveAudioFile(from tempURL: URL) -> String? {
+    static func saveAudioFile(from samples: [Float]) -> String? {
         let fileName = UUID().uuidString + ".wav"
         let dest = audioDirectory.appendingPathComponent(fileName)
         do {
             try FileManager.default.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: tempURL, to: dest)
+            try AudioEngine.writeWhisperSamples(samples, to: dest)
             return fileName
         } catch {
             return nil
@@ -194,29 +210,41 @@ final class RecordingCoordinator: ObservableObject {
 
     // MARK: - Transcription pipeline
 
-    private func transcribeAndPaste(audioURL: URL, duration: TimeInterval) async {
+    private func transcribeAndPaste(recording: RecordedAudio, duration: TimeInterval) async {
+        print("[McWhisper] transcribeAndPaste: begin sampleCount=\(recording.samples.count)")
         if !whisperEngine.isModelCurrent {
-            try? await whisperEngine.loadModel()
+            print("[McWhisper] transcribeAndPaste: loading model id=\(AppSettings.selectedModelID)")
+            do {
+                try await whisperEngine.loadModel()
+                print("[McWhisper] transcribeAndPaste: model loaded")
+            } catch {
+                print("[McWhisper] transcribeAndPaste: model load failed error=\(error)")
+                state = .error("Transcription failed: \(error.localizedDescription)")
+                return
+            }
         }
 
         let language = AppSettings.selectedLanguage
         let lang: String? = language == "auto" ? nil : language
 
         do {
+            print("[McWhisper] transcribeAndPaste: starting streaming transcription language=\(lang ?? "auto")")
             let text = try await whisperEngine.transcribeStreaming(
-                audioURL: audioURL,
+                audioSamples: recording.samples,
                 language: lang
             ) { [weak self] partial in
                 Task { @MainActor in
                     self?.partialText = partial
                 }
             }
+            print("[McWhisper] transcribeAndPaste: transcription complete textLength=\(text.count)")
 
             let mode = TranscriptionMode.from(id: AppSettings.selectedMode) ?? .voice
             let processed = ModeProcessor.process(text, mode: mode)
             rawText = text
             processedText = processed
-            let audioFileName = Self.saveAudioFile(from: audioURL)
+            print("[McWhisper] transcript=\(processed)")
+            let audioFileName = Self.saveAudioFile(from: recording.samples)
             let record = TranscriptionRecord(
                 duration: duration,
                 rawText: text,
@@ -228,19 +256,22 @@ final class RecordingCoordinator: ObservableObject {
             historyStore.add(record)
 
             let pasted = pasteManager.paste(processed)
-            pasteManager.clearTarget()
             if pasted {
+                print("[McWhisper] transcribeAndPaste: paste scheduled target=\(pasteManager.targetDescription)")
+                pasteManager.clearTarget()
                 windowController.hide()
                 state = .idle
                 partialText = ""
             } else {
+                print("[McWhisper] transcribeAndPaste: paste unavailable target=\(pasteManager.targetDescription)")
+                pasteManager.clearTarget()
+                print("[McWhisper] transcribeAndPaste: paste unavailable copied to clipboard")
                 showHud("Copied to clipboard")
             }
         } catch {
+            print("[McWhisper] transcribeAndPaste: transcription failed error=\(error)")
             state = .error("Transcription failed: \(error.localizedDescription)")
         }
-
-        try? FileManager.default.removeItem(at: audioURL)
     }
 
 }

@@ -3,15 +3,24 @@ import SwiftUI
 @main
 struct McWhisperApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
-    @StateObject private var coordinator = RecordingCoordinator()
+    @StateObject private var coordinator: RecordingCoordinator
 
     init() {
+        let coordinator = RecordingCoordinator()
+        _coordinator = StateObject(wrappedValue: coordinator)
+
         // SPM SwiftUI workaround: must briefly be .regular so the window is created.
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
 
-        // Switch to .accessory to hide from Dock (menu bar app).
         DispatchQueue.main.async {
+            if AppLaunchOptions.showsAppShotRecordingPanel {
+                RecordingPanelPreviewWindowController.shared.show()
+                return
+            }
+
+            // Switch to .accessory to hide from Dock (menu bar app).
+            coordinator.start()
             NSApplication.shared.setActivationPolicy(.accessory)
         }
     }
@@ -33,14 +42,9 @@ struct MenuBarLabel: View {
 
     var body: some View {
         if isRecording {
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
-                let phase = context.date.timeIntervalSinceReferenceDate
-                    .truncatingRemainder(dividingBy: Self.pulsePeriod)
-                let opacity = 0.3 + 0.7 * (0.5 + 0.5 * cos(phase / Self.pulsePeriod * 2 * .pi))
-                Image(systemName: "record.circle")
-                    .symbolRenderingMode(.multicolor)
-                    .opacity(opacity)
-            }
+            Image(systemName: "record.circle.fill")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.red, .red)
         } else {
             Image(systemName: "waveform")
         }
@@ -73,14 +77,16 @@ struct StatusView: View {
                     .lineLimit(2)
             }
         }
-        .task {
-            coordinator.start()
-        }
     }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if AppLaunchOptions.showsAppShotRecordingPanel {
+            RecordingPanelPreviewWindowController.shared.show()
+            return
+        }
+
         if !AppSettings.hasCompletedOnboarding {
             OnboardingWindowController.shared.show()
             return

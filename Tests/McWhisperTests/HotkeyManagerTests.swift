@@ -1,9 +1,10 @@
 import Testing
 import Foundation
 import Cocoa
+import IOKit.hidsystem
 @testable import McWhisper
 
-@Suite("HotkeyManager")
+@Suite("HotkeyManager", .serialized)
 struct HotkeyManagerTests {
 
     @Test("Initial state: isKeyDown is false")
@@ -146,6 +147,39 @@ struct HotkeyManagerTests {
             AppSettings.hotkeyKeyCode = 56
             #expect(manager.keyCode == 56)
             #expect(manager.isModifierOnlyKey)
+        }
+
+        @Test("Right Command press detection uses side-specific flags")
+        func rightCommandUsesSideSpecificFlags() {
+            let manager = HotkeyManager()
+            let originalKeyCode = AppSettings.hotkeyKeyCode
+            defer { AppSettings.hotkeyKeyCode = originalKeyCode }
+
+            AppSettings.hotkeyKeyCode = 54
+
+            let genericCommand = UInt64(NSEvent.ModifierFlags.command.rawValue)
+            let leftCommand = genericCommand | UInt64(NX_DEVICELCMDKEYMASK)
+            let rightCommand = genericCommand | UInt64(NX_DEVICERCMDKEYMASK)
+
+            #expect(!manager.isModifierPressed(rawFlags: genericCommand))
+            #expect(!manager.isModifierPressed(rawFlags: leftCommand))
+            #expect(manager.isModifierPressed(rawFlags: rightCommand))
+        }
+
+        @Test("Left Control uses side-specific flags")
+        func leftControlUsesSideSpecificFlags() {
+            let manager = HotkeyManager()
+            let originalKeyCode = AppSettings.hotkeyKeyCode
+            defer { AppSettings.hotkeyKeyCode = originalKeyCode }
+
+            AppSettings.hotkeyKeyCode = 59
+
+            let genericControl = UInt64(NSEvent.ModifierFlags.control.rawValue)
+            let leftControl = genericControl | UInt64(NX_DEVICELCTLKEYMASK)
+            let rightControl = genericControl | UInt64(NX_DEVICERCTLKEYMASK)
+
+            #expect(manager.isModifierPressed(rawFlags: leftControl))
+            #expect(!manager.isModifierPressed(rawFlags: rightControl))
         }
     }
 }

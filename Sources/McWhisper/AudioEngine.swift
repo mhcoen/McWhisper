@@ -1,6 +1,10 @@
 import AVFoundation
 import Combine
 
+struct RecordedAudio: Equatable {
+    let samples: [Float]
+}
+
 enum AudioEngineError: Error, Equatable {
     case alreadyRecording
     case notRecording
@@ -11,8 +15,6 @@ enum AudioEngineError: Error, Equatable {
 
 final class AudioEngine: ObservableObject {
     private var engine: AVAudioEngine?
-    private var outputFile: AVAudioFile?
-    private var recordingURL: URL?
     @Published private(set) var isRecording = false
 
     /// RMS audio level (0.0–1.0) updated on each buffer during recording.
@@ -32,6 +34,10 @@ final class AudioEngine: ObservableObject {
     private var vadHangoverFrames: Int = 0  // computed at start based on sample rate
     private let vadLock = NSLock()
 
+    /// Accumulated audio buffers from the tap, written to file on stop.
+    private var recordedBuffers: [AVAudioPCMBuffer] = []
+    private let bufferLock = NSLock()
+
     /// 16-bit 16 kHz mono — standard Whisper input format.
     static let whisperFormat = AVAudioFormat(
         commonFormat: .pcmFormatInt16,
@@ -45,30 +51,15 @@ final class AudioEngine: ObservableObject {
     func startRecording() throws {
         guard !isRecording else { throw AudioEngineError.alreadyRecording }
 
+        print("[McWhisper] startRecording: creating engine")
         let engine = AVAudioEngine()
+        print("[McWhisper] startRecording: getting inputNode")
         let inputNode = engine.inputNode
-
+        print("[McWhisper] startRecording: getting format")
         let hwFormat = inputNode.outputFormat(forBus: 0)
+        print("[McWhisper] startRecording: format=\(hwFormat)")
         guard hwFormat.sampleRate > 0, hwFormat.channelCount > 0 else {
             throw AudioEngineError.noInputAvailable
-        }
-
-        let wavFormat = AudioEngine.whisperFormat
-
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("wav")
-
-        let file: AVAudioFile
-        do {
-            file = try AVAudioFile(forWriting: url, settings: wavFormat.settings)
-        } catch {
-            throw AudioEngineError.fileCreationFailed(error.localizedDescription)
-        }
-
-        // Install a tap that converts hardware format → 16 kHz mono and writes to file.
-        guard let converter = AVAudioConverter(from: hwFormat, to: wavFormat) else {
-            throw AudioEngineError.fileCreationFailed("Could not create audio converter")
         }
 
         // Compute VAD hangover in frames based on hardware sample rate.
@@ -80,8 +71,13 @@ final class AudioEngine: ObservableObject {
             self.vadSilentFrameCount = vadHangoverFrames  // start as silent
         }
 
+        bufferLock.withLock { recordedBuffers = [] }
+
+        // Install tap with hardware format. Buffers are accumulated in memory
+        // and converted to 16 kHz mono WAV on stop.
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) { [weak self] buffer, _ in
             guard let self = self else { return }
+
             // Compute RMS from the raw hardware buffer.
             if let channelData = buffer.floatChannelData {
                 let totalFrames = Int(buffer.frameLength)
@@ -118,68 +114,119 @@ final class AudioEngine: ObservableObject {
                     return speechInBuffer || self.vadSilentFrameCount < self.vadHangoverFrames
                 }
 
-                DispatchQueue.main.async {
-                    self.audioLevel = clamped
-                    self.speechDetected = detected
+                DispatchQueue.main.async { [weak self] in
+                    self?.audioLevel = clamped
+                    self?.speechDetected = detected
                 }
             }
-            let frameCapacity = AVAudioFrameCount(
-                Double(buffer.frameLength) * (16000.0 / hwFormat.sampleRate)
-            )
-            guard frameCapacity > 0,
-                  let convertedBuffer = AVAudioPCMBuffer(pcmFormat: wavFormat, frameCapacity: frameCapacity) else {
+
+            // Copy and accumulate the buffer.
+            guard buffer.frameLength > 0,
+                  let copy = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameLength) else {
                 return
             }
-            var error: NSError?
-            converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
-                outStatus.pointee = .haveData
-                return buffer
+            copy.frameLength = buffer.frameLength
+            let channelCount = Int(buffer.format.channelCount)
+            if let src = buffer.floatChannelData, let dst = copy.floatChannelData {
+                for ch in 0..<channelCount {
+                    dst[ch].update(from: src[ch], count: Int(buffer.frameLength))
+                }
             }
-            if error == nil, convertedBuffer.frameLength > 0 {
-                try? file.write(from: convertedBuffer)
+            self.bufferLock.withLock {
+                self.recordedBuffers.append(copy)
             }
         }
 
         do {
+            print("[McWhisper] startRecording: prepare")
             engine.prepare()
+            print("[McWhisper] startRecording: start")
             try engine.start()
+            print("[McWhisper] startRecording: running")
         } catch {
             inputNode.removeTap(onBus: 0)
             throw AudioEngineError.engineStartFailed(error.localizedDescription)
         }
 
         self.engine = engine
-        self.outputFile = file
-        self.recordingURL = url
         self.isRecording = true
     }
 
-    /// Stop recording and return the URL of the WAV file.
+    /// Stop recording and return trimmed 16 kHz mono float samples.
     /// Throws if not currently recording.
-    func stopRecording() throws -> URL {
-        guard isRecording, let engine = engine, let url = recordingURL else {
+    func stopRecording() throws -> RecordedAudio {
+        guard isRecording, let engine = engine else {
             throw AudioEngineError.notRecording
         }
 
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
 
+        // Grab accumulated buffers and convert them directly to Whisper-ready samples.
+        let buffers = bufferLock.withLock {
+            let b = recordedBuffers
+            recordedBuffers = []
+            return b
+        }
+        let samples = try convertBuffersToWhisperSamples(buffers)
+
         self.engine = nil
-        self.outputFile = nil
-        self.recordingURL = nil
         self.isRecording = false
         self.audioLevel = 0.0
         self.speechDetected = false
         vadLock.withLock { self.vadSilentFrameCount = 0 }
 
-        // Trim leading/trailing silence in-place.
-        try AudioEngine.trimSilence(
-            url: url,
+        return RecordedAudio(samples: AudioEngine.trimSilence(
+            samples: samples,
             frameDuration: AudioEngine.vadFrameDuration,
-            threshold: AudioEngine.vadThreshold
-        )
+            threshold: AudioEngine.vadThreshold,
+            sampleRate: 16000
+        ))
+    }
 
-        return url
+    /// Convert accumulated hardware-format buffers to 16 kHz mono float samples.
+    private func convertBuffersToWhisperSamples(_ buffers: [AVAudioPCMBuffer]) throws -> [Float] {
+        guard let srcFormat = buffers.first?.format else { return [] }
+
+        let floatFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 16000,
+            channels: 1,
+            interleaved: false
+        )!
+
+        guard let converter = AVAudioConverter(from: srcFormat, to: floatFormat) else {
+            throw AudioEngineError.fileCreationFailed("Could not create audio converter")
+        }
+
+        var output: [Float] = []
+        for buffer in buffers {
+            let frameCapacity = AVAudioFrameCount(
+                Double(buffer.frameLength) * (16000.0 / srcFormat.sampleRate)
+            )
+            guard frameCapacity > 0,
+                  let convertedBuffer = AVAudioPCMBuffer(pcmFormat: floatFormat, frameCapacity: frameCapacity) else {
+                continue
+            }
+            var error: NSError?
+            var inputConsumed = false
+            converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
+                if inputConsumed {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                inputConsumed = true
+                outStatus.pointee = .haveData
+                return buffer
+            }
+            if let error {
+                throw AudioEngineError.fileCreationFailed(error.localizedDescription)
+            }
+            if convertedBuffer.frameLength > 0, let samples = convertedBuffer.floatChannelData?[0] {
+                output.append(contentsOf: UnsafeBufferPointer(start: samples, count: Int(convertedBuffer.frameLength)))
+            }
+        }
+        return output
     }
 
     /// Trim leading and trailing silence from a 16 kHz mono WAV file.
@@ -259,6 +306,88 @@ final class AudioEngine: ObservableObject {
             interleaved: false
         )
         try outFile.write(from: trimmedBuffer)
+    }
+
+    /// Trim leading and trailing silence from in-memory 16 kHz mono float samples.
+    static func trimSilence(
+        samples: [Float],
+        frameDuration: Double,
+        threshold: Float,
+        sampleRate: Double
+    ) -> [Float] {
+        let count = samples.count
+        guard count > 0 else { return [] }
+
+        let frameSize = max(1, Int(sampleRate * frameDuration))
+
+        var firstSample = count
+        var offset = 0
+        while offset + frameSize <= count {
+            let rms = samples.withUnsafeBufferPointer { ptr in
+                rmsOfSlice(ptr.baseAddress!, offset: offset, length: frameSize)
+            }
+            if rms >= threshold {
+                firstSample = offset
+                break
+            }
+            offset += frameSize
+        }
+
+        guard firstSample < count else {
+            return []
+        }
+
+        var lastSampleEnd = count
+        offset = (count / frameSize) * frameSize
+        if offset == count { offset -= frameSize }
+        while offset >= firstSample {
+            let len = min(frameSize, count - offset)
+            let rms = samples.withUnsafeBufferPointer { ptr in
+                rmsOfSlice(ptr.baseAddress!, offset: offset, length: len)
+            }
+            if rms >= threshold {
+                lastSampleEnd = offset + len
+                break
+            }
+            offset -= frameSize
+        }
+
+        return Array(samples[firstSample..<lastSampleEnd])
+    }
+
+    static func writeWhisperSamples(_ samples: [Float], to url: URL) throws {
+        let file = try AVAudioFile(
+            forWriting: url,
+            settings: whisperFormat.settings,
+            commonFormat: .pcmFormatFloat32,
+            interleaved: false
+        )
+
+        guard !samples.isEmpty else {
+            let emptyBuffer = AVAudioPCMBuffer(pcmFormat: whisperFormat, frameCapacity: 0)!
+            try file.write(from: emptyBuffer)
+            return
+        }
+
+        let floatFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 16000,
+            channels: 1,
+            interleaved: false
+        )!
+
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: floatFormat,
+            frameCapacity: AVAudioFrameCount(samples.count)
+        ) else {
+            throw AudioEngineError.fileCreationFailed("Could not allocate audio buffer")
+        }
+
+        buffer.frameLength = AVAudioFrameCount(samples.count)
+        if let dst = buffer.floatChannelData?[0] {
+            dst.update(from: samples, count: samples.count)
+        }
+        try file.write(from: buffer)
     }
 
     /// Compute RMS of a slice of float samples.

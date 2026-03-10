@@ -98,13 +98,11 @@ struct RecordingWindowControllerTests {
     }
 
     @MainActor
-    @Test("Panel starts with zero alpha for fade-in")
-    func fadeInStartsTransparent() {
+    @Test("Panel is fully visible when shown")
+    func panelStartsVisible() {
         let controller = RecordingWindowController()
         controller.show()
-        // The animation has been kicked off; alphaValue starts at 0
-        // and animates to 1. We verify the panel exists and was created.
-        #expect(controller.panel != nil)
+        #expect(controller.panel?.alphaValue == 1)
     }
 
     @MainActor
@@ -148,6 +146,30 @@ struct RecordingWindowControllerTests {
         controller.restorePosition(newPanel)
         #expect(newPanel.frame.origin.x == savedOrigin.x)
         #expect(newPanel.frame.origin.y == savedOrigin.y)
+    }
+
+    @MainActor
+    @Test("restorePosition clamps off-screen saved positions")
+    func restorePositionClampsOffscreen() {
+        AppSettings.hasSavedPanelPosition = true
+        AppSettings.panelPositionX = -10_000
+        AppSettings.panelPositionY = -10_000
+
+        let controller = RecordingWindowController()
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 280, height: 80),
+            styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+
+        controller.restorePosition(panel)
+
+        if let screen = NSScreen.main {
+            let frame = screen.visibleFrame
+            #expect(panel.frame.minX >= frame.minX)
+            #expect(panel.frame.minY >= frame.minY)
+        }
     }
 
     @MainActor

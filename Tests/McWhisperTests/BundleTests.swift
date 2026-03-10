@@ -46,4 +46,11 @@ struct BundleTests {
         #expect(contents.contains("McWhisper"))
         #expect(contents.contains("exit 1"))
     }
+
+    @Test("run.sh forwards arguments to the app")
+    func runScriptForwardsArguments() throws {
+        let path = "\(projectDir)/run.sh"
+        let contents = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(contents.contains("\"$@\""))
+    }
 }

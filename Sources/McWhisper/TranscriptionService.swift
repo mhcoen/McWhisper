@@ -75,6 +75,30 @@ final class WhisperKitEngine: ObservableObject {
         return text
     }
 
+    /// Transcribe in-memory 16 kHz mono float samples.
+    func transcribe(audioSamples: [Float], language: String?) async throws -> String {
+        guard let kit = whisperKit, modelState == .loaded else {
+            throw TranscriptionError.modelNotLoaded
+        }
+
+        let lang: String? = (language == nil || language == "auto") ? nil : language
+        let options = DecodingOptions(
+            language: lang,
+            detectLanguage: lang == nil
+        )
+
+        let results: [TranscriptionResult] = try await kit.transcribe(
+            audioArray: audioSamples,
+            decodeOptions: options
+        )
+
+        let text = results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else {
+            throw TranscriptionError.emptyResult
+        }
+        return text
+    }
+
     /// Transcribe audio with real-time partial results via WhisperKit's decode callback.
     /// Calls `onPartial` with each intermediate text string during decoding.
     /// Returns the final transcribed text.
@@ -103,6 +127,43 @@ final class WhisperKitEngine: ObservableObject {
 
         let results: [TranscriptionResult] = try await kit.transcribe(
             audioPath: audioURL.path,
+            decodeOptions: options,
+            callback: callback
+        )
+
+        let text = results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else {
+            throw TranscriptionError.emptyResult
+        }
+        return text
+    }
+
+    /// Transcribe in-memory samples with decode progress updates.
+    func transcribeStreaming(
+        audioSamples: [Float],
+        language: String?,
+        onPartial: @escaping @Sendable (String) -> Void
+    ) async throws -> String {
+        guard let kit = whisperKit, modelState == .loaded else {
+            throw TranscriptionError.modelNotLoaded
+        }
+
+        let lang: String? = (language == nil || language == "auto") ? nil : language
+        let options = DecodingOptions(
+            language: lang,
+            detectLanguage: lang == nil
+        )
+
+        let callback: ((TranscriptionProgress) -> Bool?) = { progress in
+            let partial = progress.text.trimmingCharacters(in: .whitespaces)
+            if !partial.isEmpty {
+                onPartial(partial)
+            }
+            return true
+        }
+
+        let results: [TranscriptionResult] = try await kit.transcribe(
+            audioArray: audioSamples,
             decodeOptions: options,
             callback: callback
         )

@@ -143,6 +143,13 @@ struct MenuBarViewTests {
         #expect(a === b)
     }
 
+    @MainActor
+    @Test("RecordingPanelPreviewView builds")
+    func recordingPanelPreviewViewBuilds() {
+        let view = RecordingPanelPreviewView()
+        _ = view.body
+    }
+
     @Test("MenuBarLabel builds when not recording")
     func menuBarLabelNotRecording() {
         let view = MenuBarLabel(isRecording: false)
