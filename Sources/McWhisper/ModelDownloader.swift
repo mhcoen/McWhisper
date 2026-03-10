@@ -142,7 +142,16 @@ final class ModelDownloader: ObservableObject {
                     throw ModelDownloadError.networkError("HTTP \(code)")
                 }
 
-                let destURL = modelDir.appendingPathComponent(file.path)
+                // Sanitize file path to prevent directory traversal attacks
+                let sanitizedPath = file.path.components(separatedBy: "/").filter { $0 != ".." && $0 != "." && !$0.isEmpty }.joined(separator: "/")
+                guard !sanitizedPath.isEmpty else {
+                    continue
+                }
+                let destURL = modelDir.appendingPathComponent(sanitizedPath)
+                // Verify resolved path is within the model directory
+                guard destURL.standardizedFileURL.path.hasPrefix(modelDir.standardizedFileURL.path) else {
+                    continue
+                }
                 try FileManager.default.createDirectory(at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
                 if FileManager.default.fileExists(atPath: destURL.path) {
                     try FileManager.default.removeItem(at: destURL)

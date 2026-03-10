@@ -134,5 +134,5 @@ macOS 14+ desktop menu bar app in Swift/SwiftUI using SPM. This phase wires the 
 - [x] Wire up 13 documentation-example test(s) (markdown, shell, text)
   - [x] Replace `run_example()` stub in test_doc_examples_generated.py with actual project imports (N/A: Swift project, no Python imports to wire)
   - [x] Run pytest and fix any failing doc-example tests (N/A: Swift project, no Python test runner)
-- [ ] Update `run.sh` if any new build flags or plist keys are required, then do an end-to-end smoke test: build, launch, open Settings → Models, confirm Parakeet TDT and Qwen3-ASR entries appear, download one, select it, record a short phrase, and verify a transcript is returned without error [feat: "Multiple local voice models"]
+- [x] Update `run.sh` if any new build flags or plist keys are required, then do an end-to-end smoke test: build, launch, open Settings → Models, confirm Parakeet TDT and Qwen3-ASR entries appear, download one, select it, record a short phrase, and verify a transcript is returned without error [feat: "Multiple local voice models"]
 

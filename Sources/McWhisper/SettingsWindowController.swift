@@ -41,7 +41,16 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     nonisolated func windowWillClose(_ notification: Notification) {
         Task { @MainActor in
             if let hotkeyManager = self.hotkeyManager {
-                try? hotkeyManager.start()
+                do {
+                    try hotkeyManager.start()
+                } catch {
+                    print("[McWhisper] Failed to restart hotkey listener: \(error)")
+                    let alert = NSAlert()
+                    alert.messageText = "Hotkey Unavailable"
+                    alert.informativeText = "The push-to-talk hotkey could not be restarted. Please check that Accessibility permission is granted in System Settings > Privacy & Security > Accessibility."
+                    alert.alertStyle = .warning
+                    alert.runModal()
+                }
                 self.hotkeyManager = nil
             }
         }

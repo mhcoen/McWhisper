@@ -23,6 +23,7 @@ final class HotkeyManager: ObservableObject {
     private var tapRunLoop: CFRunLoop?
     private var tapThread: Thread?
     private let setupSemaphore = DispatchSemaphore(value: 0)
+    private var teardownSemaphore: DispatchSemaphore?
     private let stateLock = NSLock()
     private var startupError: HotkeyManagerError?
 
@@ -50,6 +51,7 @@ final class HotkeyManager: ObservableObject {
 
         stop()
         startupError = nil
+        teardownSemaphore = DispatchSemaphore(value: 0)
 
         let thread = Thread { [weak self] in
             self?.runEventTapLoop()
@@ -81,6 +83,8 @@ final class HotkeyManager: ObservableObject {
             CFRunLoopWakeUp(tapRunLoop)
             CFRunLoopStop(tapRunLoop)
         }
+        teardownSemaphore?.wait()
+        teardownSemaphore = nil
         eventTap = nil
         runLoopSource = nil
         tapRunLoop = nil
@@ -179,7 +183,9 @@ final class HotkeyManager: ObservableObject {
         let isPressed = isModifierPressed(rawFlags: event.flags.rawValue)
         if eventKeyCode == keyCode && isPressed && !isKeyDown {
             print("[McWhisper] hotkey down keyCode=\(eventKeyCode) flags=\(event.flags.rawValue)")
-            isKeyDown = true
+            DispatchQueue.main.async { [self] in
+                isKeyDown = true
+            }
             print("[McWhisper] invoke onKeyDown callbackNil=\(onKeyDown == nil)")
             onKeyDown?()
             return true
@@ -187,7 +193,9 @@ final class HotkeyManager: ObservableObject {
 
         if !isPressed && isKeyDown {
             print("[McWhisper] hotkey up keyCode=\(eventKeyCode) flags=\(event.flags.rawValue)")
-            isKeyDown = false
+            DispatchQueue.main.async { [self] in
+                isKeyDown = false
+            }
             print("[McWhisper] invoke onKeyUp callbackNil=\(onKeyUp == nil)")
             onKeyUp?()
             return true
@@ -201,14 +209,18 @@ final class HotkeyManager: ObservableObject {
         switch type {
         case .keyDown:
             guard matches(event), !isKeyDown else { return false }
-            isKeyDown = true
+            DispatchQueue.main.async { [self] in
+                isKeyDown = true
+            }
             print("[McWhisper] invoke onKeyDown callbackNil=\(onKeyDown == nil)")
             onKeyDown?()
             return true
 
         case .keyUp:
             guard matches(event), isKeyDown else { return false }
-            isKeyDown = false
+            DispatchQueue.main.async { [self] in
+                isKeyDown = false
+            }
             print("[McWhisper] invoke onKeyUp callbackNil=\(onKeyUp == nil)")
             onKeyUp?()
             return true
@@ -217,7 +229,9 @@ final class HotkeyManager: ObservableObject {
             let relevantMask: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand]
             let currentMods = event.flags.intersection(relevantMask).rawValue
             guard isKeyDown, currentMods != UInt64(modifiers) else { return false }
-            isKeyDown = false
+            DispatchQueue.main.async { [self] in
+                isKeyDown = false
+            }
             print("[McWhisper] invoke onKeyUp callbackNil=\(onKeyUp == nil)")
             onKeyUp?()
             return true
@@ -244,6 +258,7 @@ final class HotkeyManager: ObservableObject {
             stateLock.withLock {
                 startupError = .eventTapCreationFailed
             }
+            teardownSemaphore?.signal()
             setupSemaphore.signal()
             return
         }
@@ -261,6 +276,7 @@ final class HotkeyManager: ObservableObject {
         CGEvent.tapEnable(tap: tap, enable: true)
         setupSemaphore.signal()
         CFRunLoopRun()
+        teardownSemaphore?.signal()
     }
 }
 
