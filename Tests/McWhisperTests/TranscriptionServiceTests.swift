@@ -79,6 +79,38 @@ struct WhisperKitEngineTests {
         }
     }
 
+    @Test("transcribe audioSamples throws modelNotLoaded when no model is loaded")
+    func transcribeAudioSamplesWithoutModel() async {
+        let engine = WhisperKitEngine()
+        do {
+            _ = try await engine.transcribe(audioSamples: [Float](repeating: 0, count: 16000), language: nil)
+            Issue.record("Expected TranscriptionError.modelNotLoaded")
+        } catch let error as TranscriptionError {
+            #expect(error == .modelNotLoaded)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("transcribeStreaming audioSamples throws modelNotLoaded when no model is loaded")
+    func transcribeStreamingAudioSamplesWithoutModel() async {
+        let engine = WhisperKitEngine()
+        do {
+            _ = try await engine.transcribeStreaming(audioSamples: [Float](repeating: 0, count: 16000), language: nil) { _ in }
+            Issue.record("Expected TranscriptionError.modelNotLoaded")
+        } catch let error as TranscriptionError {
+            #expect(error == .modelNotLoaded)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("isLoaded is false when unloaded")
+    func isLoadedWhenUnloaded() {
+        let engine = WhisperKitEngine()
+        #expect(engine.isLoaded == false)
+    }
+
     @Test("ObservableObject conformance")
     func observableConformance() {
         let engine = WhisperKitEngine()
