@@ -39,7 +39,6 @@ final class RecordingCoordinator: ObservableObject {
     func start() {
         if levelCancellable == nil {
             levelCancellable = audioEngine.$audioLevel
-                .receive(on: DispatchQueue.main)
                 .sink { [weak self] level in
                     guard let self, self.state == .recording else { return }
                     withAnimation(.linear(duration: 0.05)) {
@@ -52,16 +51,12 @@ final class RecordingCoordinator: ObservableObject {
         }
 
         hotkeyManager.onKeyDown = { [weak self] in
-            print("[McWhisper] onKeyDown closure selfNil=\(self == nil)")
             DispatchQueue.main.async { [weak self] in
-                print("[McWhisper] onKeyDown main selfNil=\(self == nil)")
                 self?.handleKeyDown()
             }
         }
         hotkeyManager.onKeyUp = { [weak self] in
-            print("[McWhisper] onKeyUp closure selfNil=\(self == nil)")
             DispatchQueue.main.async { [weak self] in
-                print("[McWhisper] onKeyUp main selfNil=\(self == nil)")
                 self?.handleKeyUp()
             }
         }
@@ -88,7 +83,6 @@ final class RecordingCoordinator: ObservableObject {
     // MARK: - Hotkey handlers
 
     private func handleKeyDown() {
-        print("[McWhisper] handleKeyDown state=\(String(describing: state))")
         switch state {
         case .error:
             state = .idle
@@ -109,26 +103,21 @@ final class RecordingCoordinator: ObservableObject {
         state = .recording
         windowController.show(coordinator: self)
 
-        Task { @MainActor in
-            do {
-                try audioEngine.startRecording()
-                recordingStartTime = Date()
-            } catch {
-                state = .error("Recording failed: \(error.localizedDescription)")
-            }
+        do {
+            try audioEngine.startRecording()
+            recordingStartTime = Date()
+        } catch {
+            state = .error("Recording failed: \(error.localizedDescription)")
         }
     }
 
     private func handleKeyUp() {
-        print("[McWhisper] handleKeyUp state=\(String(describing: state))")
         guard state == .recording else { return }
 
         let duration = recordingStartTime.map { Date().timeIntervalSince($0) } ?? 0
         let recording: RecordedAudio
         do {
-            print("[McWhisper] stopRecording: begin")
             recording = try audioEngine.stopRecording()
-            print("[McWhisper] stopRecording: success samples=\(recording.samples.count)")
         } catch {
             state = .error("Stop recording failed: \(error.localizedDescription)")
             return
@@ -214,14 +203,10 @@ final class RecordingCoordinator: ObservableObject {
     // MARK: - Transcription pipeline
 
     private func transcribeAndPaste(recording: RecordedAudio, duration: TimeInterval) async {
-        print("[McWhisper] transcribeAndPaste: begin sampleCount=\(recording.samples.count)")
         if !whisperEngine.isModelCurrent {
-            print("[McWhisper] transcribeAndPaste: loading model id=\(AppSettings.selectedModelID)")
             do {
                 try await whisperEngine.loadModel()
-                print("[McWhisper] transcribeAndPaste: model loaded")
             } catch {
-                print("[McWhisper] transcribeAndPaste: model load failed error=\(error)")
                 state = .error("Transcription failed: \(error.localizedDescription)")
                 return
             }
@@ -231,7 +216,6 @@ final class RecordingCoordinator: ObservableObject {
         let lang: String? = language == "auto" ? nil : language
 
         do {
-            print("[McWhisper] transcribeAndPaste: starting streaming transcription language=\(lang ?? "auto")")
             let text = try await whisperEngine.transcribeStreaming(
                 audioSamples: recording.samples,
                 language: lang
@@ -240,13 +224,10 @@ final class RecordingCoordinator: ObservableObject {
                     self?.partialText = partial
                 }
             }
-            print("[McWhisper] transcribeAndPaste: transcription complete textLength=\(text.count)")
-
             let mode = TranscriptionMode.from(id: AppSettings.selectedMode) ?? .voice
             let processed = ModeProcessor.process(text, mode: mode)
             rawText = text
             processedText = processed
-            print("[McWhisper] transcript=\(processed)")
             let audioFileName = Self.saveAudioFile(from: recording.samples)
             let record = TranscriptionRecord(
                 duration: duration,
@@ -260,19 +241,15 @@ final class RecordingCoordinator: ObservableObject {
 
             let pasted = pasteManager.paste(processed)
             if pasted {
-                print("[McWhisper] transcribeAndPaste: paste scheduled target=\(pasteManager.targetDescription)")
                 pasteManager.clearTarget()
                 windowController.hide()
                 state = .idle
                 partialText = ""
             } else {
-                print("[McWhisper] transcribeAndPaste: paste unavailable target=\(pasteManager.targetDescription)")
                 pasteManager.clearTarget()
-                print("[McWhisper] transcribeAndPaste: paste unavailable copied to clipboard")
                 showHud("Copied to clipboard")
             }
         } catch {
-            print("[McWhisper] transcribeAndPaste: transcription failed error=\(error)")
             state = .error("Transcription failed: \(error.localizedDescription)")
         }
     }

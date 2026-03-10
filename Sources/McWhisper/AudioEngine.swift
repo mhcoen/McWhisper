@@ -51,13 +51,9 @@ final class AudioEngine: ObservableObject {
     func startRecording() throws {
         guard !isRecording else { throw AudioEngineError.alreadyRecording }
 
-        print("[McWhisper] startRecording: creating engine")
         let engine = AVAudioEngine()
-        print("[McWhisper] startRecording: getting inputNode")
         let inputNode = engine.inputNode
-        print("[McWhisper] startRecording: getting format")
         let hwFormat = inputNode.outputFormat(forBus: 0)
-        print("[McWhisper] startRecording: format=\(hwFormat)")
         guard hwFormat.sampleRate > 0, hwFormat.channelCount > 0 else {
             throw AudioEngineError.noInputAvailable
         }
@@ -138,11 +134,8 @@ final class AudioEngine: ObservableObject {
         }
 
         do {
-            print("[McWhisper] startRecording: prepare")
             engine.prepare()
-            print("[McWhisper] startRecording: start")
             try engine.start()
-            print("[McWhisper] startRecording: running")
         } catch {
             inputNode.removeTap(onBus: 0)
             throw AudioEngineError.engineStartFailed(error.localizedDescription)

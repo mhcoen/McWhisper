@@ -63,6 +63,13 @@ Foundation's `.bySentences` enumeration does not split sentences that start with
 - `handleKeyUp()` does NOT cancel `levelCancellable`. It calls `stopRecording()` (which removes the tap and resets `audioLevel` to 0) and sets `state = .transcribing`. The subscription survives key-up.
 - There is a double main-queue dispatch: `audioLevel` is set via `DispatchQueue.main.async` in the tap, and the subscription uses `.receive(on: DispatchQueue.main)`. Harmless but adds one extra run-loop cycle of latency.
 
+### 2026-03-10 — [28.3] Root cause: deferred startRecording() and double main-queue dispatch
+
+- `handleKeyDown()` wrapped `audioEngine.startRecording()` in `Task { @MainActor in }`. Since `handleKeyDown()` is already `@MainActor`, this deferred the call to a future executor turn. On quick key press-and-release, `handleKeyUp()` (dispatched via `DispatchQueue.main.async`) could run before `startRecording()`, causing `stopRecording()` to throw `.notRecording`. Even for normal-length recordings, the tap installation was delayed, causing the initial waveform frames to be missed.
+- The Combine subscription used `.receive(on: DispatchQueue.main)` but `audioLevel` was already set from `DispatchQueue.main.async` in the tap callback. This double main-queue dispatch added one extra run loop cycle of latency to every level sample, making the waveform lag behind the audio.
+- Fix: call `startRecording()` synchronously in `handleKeyDown()` (no Task wrapper), remove `.receive(on: DispatchQueue.main)` from the subscription (publisher already fires on main).
+- Also removed `PasteManager.targetDescription` (unused after debug print removal) and all debug `print` statements from RecordingCoordinator, AudioEngine, and PasteManager.
+
 ## Hypotheses
 
 ## Eliminated
