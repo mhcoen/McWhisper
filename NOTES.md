@@ -51,3 +51,18 @@ Added `nonisolated static let modelsDirectoryPath` to `ModelDownloader` to provi
 ## 2026-03-07 — [21] Switch transcription modes and verify formatting differences
 
 Foundation's `.bySentences` enumeration does not split sentences that start with lowercase letters. For example, "buy groceries. clean the house." is treated as a single sentence. This affects Note mode (bullet points) and Meeting mode (paragraph breaks) when Whisper outputs lowercase text without proper capitalization. Whisper typically capitalizes sentence starts, so this is unlikely to be a real-world issue, but worth knowing when writing tests.
+
+## Observations
+
+### 2026-03-10 — [28.1] AudioEngine.$audioLevel → RecordingCoordinator.levelSamples Combine trace
+
+- The Combine subscription (`levelCancellable`) is created once in `start()` with an `if levelCancellable == nil` guard, making it idempotent. Only `stop()` cancels it.
+- The sink guard (`self.state == .recording`) filters level updates outside recording state, so levels emitted during `.transcribing` or `.idle` are silently dropped. The subscription itself remains alive.
+- In `handleKeyDown()`, `state = .recording` is set synchronously (line 106) before `startRecording()` runs in a `Task` (line 109). Both are `@MainActor`, so state is `.recording` before any tap callbacks dispatch to main.
+- In `AudioEngine.startRecording()`, the tap is installed (line 78) before `engine.start()` (line 144). Audio data flows only after `engine.start()`, guaranteeing the tap is ready.
+- `handleKeyUp()` does NOT cancel `levelCancellable`. It calls `stopRecording()` (which removes the tap and resets `audioLevel` to 0) and sets `state = .transcribing`. The subscription survives key-up.
+- There is a double main-queue dispatch: `audioLevel` is set via `DispatchQueue.main.async` in the tap, and the subscription uses `.receive(on: DispatchQueue.main)`. Harmless but adds one extra run-loop cycle of latency.
+
+## Hypotheses
+
+## Eliminated

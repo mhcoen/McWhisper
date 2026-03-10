@@ -128,6 +128,64 @@ struct RecordingCoordinatorTests {
         #expect(RecordingCoordinator.levelBufferSize == 30)
     }
 
+    // MARK: - Level subscription lifecycle
+
+    @MainActor
+    @Test("start() creates level subscription")
+    func startCreatesLevelSubscription() {
+        let coordinator = RecordingCoordinator()
+        #expect(!coordinator.hasLevelSubscription)
+        coordinator.start()
+        #expect(coordinator.hasLevelSubscription)
+        coordinator.stop()
+    }
+
+    @MainActor
+    @Test("stop() cancels level subscription")
+    func stopCancelsLevelSubscription() {
+        let coordinator = RecordingCoordinator()
+        coordinator.start()
+        #expect(coordinator.hasLevelSubscription)
+        coordinator.stop()
+        #expect(!coordinator.hasLevelSubscription)
+    }
+
+    @MainActor
+    @Test("start() is idempotent for level subscription")
+    func startIdempotentSubscription() {
+        let coordinator = RecordingCoordinator()
+        coordinator.start()
+        #expect(coordinator.hasLevelSubscription)
+        // Calling start() again should not create a duplicate subscription
+        coordinator.start()
+        #expect(coordinator.hasLevelSubscription)
+        coordinator.stop()
+        #expect(!coordinator.hasLevelSubscription)
+    }
+
+    @MainActor
+    @Test("stop() then start() recreates level subscription")
+    func restartRecreatesSubscription() {
+        let coordinator = RecordingCoordinator()
+        coordinator.start()
+        coordinator.stop()
+        #expect(!coordinator.hasLevelSubscription)
+        coordinator.start()
+        #expect(coordinator.hasLevelSubscription)
+        coordinator.stop()
+    }
+
+    @MainActor
+    @Test("stop() is idempotent for level subscription cancellation")
+    func stopIdempotentSubscription() {
+        let coordinator = RecordingCoordinator()
+        coordinator.start()
+        coordinator.stop()
+        #expect(!coordinator.hasLevelSubscription)
+        coordinator.stop()
+        #expect(!coordinator.hasLevelSubscription)
+    }
+
     @MainActor
     @Test("retranscribe is safe with record lacking audio file")
     func retranscribeNoAudio() {

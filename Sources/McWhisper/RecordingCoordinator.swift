@@ -30,6 +30,9 @@ final class RecordingCoordinator: ObservableObject {
     @Published private(set) var levelSamples: [Float] = Array(repeating: 0, count: 30)
 
     private var levelCancellable: AnyCancellable?
+
+    /// Whether the audio-level Combine subscription is active. Exposed for testing.
+    var hasLevelSubscription: Bool { levelCancellable != nil }
     private var recordingStartTime: Date?
     private var hudDismissTask: Task<Void, Never>?
 
