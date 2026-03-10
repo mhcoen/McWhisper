@@ -5,6 +5,38 @@ enum ModelEngine: String, Equatable, CaseIterable {
     case qwen3asr
 }
 
+enum EngineAvailability {
+    /// Whether the current Mac has Apple Silicon (arm64).
+    static let isAppleSilicon: Bool = {
+        #if arch(arm64)
+        return true
+        #else
+        return false
+        #endif
+    }()
+
+    /// Returns true if the given engine can run on this hardware.
+    static func isAvailable(_ engine: ModelEngine) -> Bool {
+        switch engine {
+        case .whisperKit:
+            return true  // WhisperKit works on both Intel (via CoreML CPU/GPU) and Apple Silicon
+        case .qwen3asr:
+            return isAppleSilicon  // qwen3-asr-swift requires Apple Silicon Neural Engine
+        }
+    }
+
+    /// Human-readable reason why the engine is unavailable, or nil if available.
+    static func unavailabilityReason(_ engine: ModelEngine) -> String? {
+        guard !isAvailable(engine) else { return nil }
+        switch engine {
+        case .qwen3asr:
+            return "Requires Apple Silicon"
+        case .whisperKit:
+            return nil
+        }
+    }
+}
+
 struct ModelInfo: Identifiable, Equatable {
     let id: String
     let displayName: String

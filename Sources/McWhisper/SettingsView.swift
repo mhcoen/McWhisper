@@ -311,17 +311,22 @@ struct ModelsSettingsTab: View {
             Section("Active Model") {
                 Picker("Model:", selection: $selectedModelID) {
                     ForEach(ModelCatalog.availableModels) { model in
-                        let isAvailable = model.isBundled || downloader.state(for: model.id) == .downloaded
+                        let engineOK = EngineAvailability.isAvailable(model.engine)
+                        let isReady = engineOK && (model.isBundled || downloader.state(for: model.id) == .downloaded)
                         Text("\(model.displayName) (\(model.sizeLabel))")
                             .tag(model.id)
-                            .foregroundStyle(isAvailable ? .primary : .secondary)
+                            .foregroundStyle(isReady ? .primary : .secondary)
                     }
                 }
+                .accessibilityIdentifier("activeModelPicker")
                 .onChange(of: selectedModelID) { _, newValue in
-                    // Revert to previous model if the selected one isn't downloaded
-                    if let model = ModelCatalog.model(for: newValue),
-                       !model.isBundled,
-                       downloader.state(for: newValue) != .downloaded {
+                    guard let model = ModelCatalog.model(for: newValue) else {
+                        selectedModelID = previousModelID
+                        return
+                    }
+                    // Revert if engine unavailable or model not downloaded
+                    if !EngineAvailability.isAvailable(model.engine) ||
+                       (!model.isBundled && downloader.state(for: newValue) != .downloaded) {
                         selectedModelID = previousModelID
                     } else {
                         previousModelID = newValue
@@ -335,6 +340,8 @@ struct ModelsSettingsTab: View {
                         model: model,
                         isSelected: model.id == selectedModelID,
                         downloadState: downloader.state(for: model.id),
+                        engineAvailable: EngineAvailability.isAvailable(model.engine),
+                        unavailabilityReason: EngineAvailability.unavailabilityReason(model.engine),
                         onDownload: { startDownload(model.id) },
                         onCancel: { cancelDownload(model.id) },
                         onDelete: { deleteModel(model.id) }
@@ -367,6 +374,8 @@ struct ModelRow: View {
     let model: ModelInfo
     let isSelected: Bool
     var downloadState: ModelDownloadState = .notDownloaded
+    var engineAvailable: Bool = true
+    var unavailabilityReason: String?
     var onDownload: (() -> Void)?
     var onCancel: (() -> Void)?
     var onDelete: (() -> Void)?
@@ -377,6 +386,7 @@ struct ModelRow: View {
                 HStack {
                     Text(model.displayName)
                         .fontWeight(isSelected ? .semibold : .regular)
+                        .foregroundStyle(engineAvailable ? .primary : .secondary)
                     if model.isBundled {
                         Text("Bundled")
                             .font(.caption)
@@ -393,9 +403,17 @@ struct ModelRow: View {
                         .clipShape(Capsule())
                         .accessibilityIdentifier("engineBadge_\(model.id)")
                 }
-                Text(model.sizeLabel)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(model.sizeLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let reason = unavailabilityReason {
+                        Text("· \(reason)")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .accessibilityIdentifier("unavailabilityReason_\(model.id)")
+                    }
+                }
                 if case .downloading(let progress) = downloadState {
                     ProgressView(value: progress)
                         .progressViewStyle(.linear)
@@ -414,10 +432,11 @@ struct ModelRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.accentColor)
             }
-            if !model.isBundled && model.engine == .whisperKit {
+            if !model.isBundled && engineAvailable {
                 modelActionButton
             }
         }
+        .accessibilityIdentifier("modelRow_\(model.id)")
     }
 
     @ViewBuilder
@@ -429,18 +448,21 @@ struct ModelRow: View {
             }
             .buttonStyle(.borderless)
             .help("Download model")
+            .accessibilityIdentifier("downloadButton_\(model.id)")
         case .downloading:
             Button { onCancel?() } label: {
                 Image(systemName: "xmark.circle")
             }
             .buttonStyle(.borderless)
             .help("Cancel download")
+            .accessibilityIdentifier("cancelButton_\(model.id)")
         case .downloaded:
             Button { onDelete?() } label: {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
             .help("Delete model")
+            .accessibilityIdentifier("deleteButton_\(model.id)")
         }
     }
 }

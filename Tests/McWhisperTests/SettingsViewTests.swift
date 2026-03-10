@@ -257,6 +257,66 @@ struct SettingsViewTests {
         _ = view.body
     }
 
+    @MainActor
+    @Test("ModelRow builds with engine unavailable")
+    func modelRowEngineUnavailable() {
+        let model = ModelInfo(id: "test-model", displayName: "Test", sizeLabel: "~1 GB", isBundled: false, engine: .qwen3asr)
+        let view = ModelRow(
+            model: model,
+            isSelected: false,
+            downloadState: .notDownloaded,
+            engineAvailable: false,
+            unavailabilityReason: "Requires Apple Silicon"
+        )
+        _ = view.body
+    }
+
+    @MainActor
+    @Test("ModelRow builds with engine available")
+    func modelRowEngineAvailable() {
+        let model = ModelInfo(id: "test-model", displayName: "Test", sizeLabel: "~1 GB", isBundled: false, engine: .qwen3asr)
+        let view = ModelRow(
+            model: model,
+            isSelected: false,
+            downloadState: .notDownloaded,
+            engineAvailable: true,
+            unavailabilityReason: nil
+        )
+        _ = view.body
+    }
+
+    // MARK: - Engine availability
+
+    @Test("EngineAvailability: WhisperKit is always available")
+    func whisperKitAlwaysAvailable() {
+        #expect(EngineAvailability.isAvailable(.whisperKit) == true)
+        #expect(EngineAvailability.unavailabilityReason(.whisperKit) == nil)
+    }
+
+    @Test("EngineAvailability: isAppleSilicon matches arch")
+    func isAppleSiliconMatchesArch() {
+        #if arch(arm64)
+        #expect(EngineAvailability.isAppleSilicon == true)
+        #else
+        #expect(EngineAvailability.isAppleSilicon == false)
+        #endif
+    }
+
+    @Test("EngineAvailability: qwen3asr availability matches Apple Silicon")
+    func qwen3asrAvailability() {
+        #expect(EngineAvailability.isAvailable(.qwen3asr) == EngineAvailability.isAppleSilicon)
+    }
+
+    @Test("EngineAvailability: qwen3asr unavailability reason when not Apple Silicon")
+    func qwen3asrUnavailabilityReason() {
+        if EngineAvailability.isAppleSilicon {
+            #expect(EngineAvailability.unavailabilityReason(.qwen3asr) == nil)
+        } else {
+            #expect(EngineAvailability.unavailabilityReason(.qwen3asr) != nil)
+            #expect(EngineAvailability.unavailabilityReason(.qwen3asr)!.contains("Apple Silicon"))
+        }
+    }
+
     // MARK: - Modes tab
 
     @MainActor
