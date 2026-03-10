@@ -285,6 +285,65 @@ struct SettingsViewTests {
         _ = view.body
     }
 
+    @MainActor
+    @Test("ModelRow builds with downloading state and progress")
+    func modelRowDownloading() {
+        let model = ModelInfo(id: "test-dl", displayName: "Test", sizeLabel: "~500 MB", isBundled: false)
+        let view = ModelRow(
+            model: model,
+            isSelected: false,
+            downloadState: .downloading(progress: 0.45),
+            engineAvailable: true
+        )
+        _ = view.body
+    }
+
+    @MainActor
+    @Test("ModelRow builds with failed state")
+    func modelRowFailed() {
+        let model = ModelInfo(id: "test-fail", displayName: "Test", sizeLabel: "~500 MB", isBundled: false)
+        let view = ModelRow(
+            model: model,
+            isSelected: false,
+            downloadState: .failed("Network error"),
+            engineAvailable: true
+        )
+        _ = view.body
+    }
+
+    @MainActor
+    @Test("ModelRow renders for each Qwen3-ASR catalog model")
+    func modelRowQwen3asrCatalogModels() {
+        let qwenModels = ModelCatalog.availableModels.filter { $0.engine == .qwen3asr }
+        #expect(qwenModels.count >= 3)
+        for model in qwenModels {
+            let view = ModelRow(
+                model: model,
+                isSelected: false,
+                downloadState: .notDownloaded,
+                engineAvailable: EngineAvailability.isAvailable(model.engine),
+                unavailabilityReason: EngineAvailability.unavailabilityReason(model.engine)
+            )
+            _ = view.body
+        }
+    }
+
+    @MainActor
+    @Test("ModelRow renders for each WhisperKit catalog model")
+    func modelRowWhisperKitCatalogModels() {
+        let whisperModels = ModelCatalog.availableModels.filter { $0.engine == .whisperKit }
+        #expect(!whisperModels.isEmpty)
+        for model in whisperModels {
+            let view = ModelRow(
+                model: model,
+                isSelected: model.isBundled,
+                downloadState: model.isBundled ? .downloaded : .notDownloaded,
+                engineAvailable: true
+            )
+            _ = view.body
+        }
+    }
+
     // MARK: - Engine availability
 
     @Test("EngineAvailability: WhisperKit is always available")

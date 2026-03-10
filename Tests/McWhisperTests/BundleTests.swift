@@ -53,4 +53,13 @@ struct BundleTests {
         let contents = try String(contentsOfFile: path, encoding: .utf8)
         #expect(contents.contains("\"$@\""))
     }
+
+    @Test("run.sh uses deep codesign for multi-engine frameworks")
+    func runScriptDeepCodesign() throws {
+        let path = "\(projectDir)/run.sh"
+        let contents = try String(contentsOfFile: path, encoding: .utf8)
+        // --deep is required because WhisperKit and qwen3-asr-swift
+        // may embed nested frameworks that need signing
+        #expect(contents.contains("codesign --deep"))
+    }
 }
