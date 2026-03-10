@@ -38,7 +38,20 @@ final class ModelDownloader: ObservableObject {
         URL(fileURLWithPath: modelsDirectoryPath)
     }()
 
-    static let repoID = "argmaxinc/whisperkit-coreml"
+    nonisolated static let repoID = "argmaxinc/whisperkit-coreml"
+
+    /// Resolves the HuggingFace repo slug for a given model ID.
+    /// WhisperKit models use the shared `repoID`; qwen3-asr engine models
+    /// use per-model repos from `ModelCatalog.huggingFaceModelID(for:)`.
+    nonisolated static func repoID(for modelID: String) -> String? {
+        guard let model = ModelCatalog.model(for: modelID) else { return nil }
+        switch model.engine {
+        case .whisperKit:
+            return repoID
+        case .qwen3asr:
+            return ModelCatalog.huggingFaceModelID(for: modelID)
+        }
+    }
 
     init(modelsDirectory: URL? = nil) {
         self.modelsDirectory = modelsDirectory ?? Self.defaultModelsDirectory
@@ -49,12 +62,6 @@ final class ModelDownloader: ObservableObject {
         for model in ModelCatalog.availableModels {
             if model.isBundled {
                 downloads[model.id] = .downloaded
-            } else if model.engine == .qwen3asr {
-                // qwen3-asr-swift models are downloaded on first use by the engine.
-                // Mark them as available so the user can select them.
-                if downloads[model.id] == nil {
-                    downloads[model.id] = .downloaded
-                }
             } else if let current = downloads[model.id], current.isDownloading {
                 // preserve active downloads
             } else {
@@ -80,12 +87,20 @@ final class ModelDownloader: ObservableObject {
     // MARK: - Download
 
     func downloadModel(_ modelID: String) async throws {
+        guard let repo = Self.repoID(for: modelID) else {
+            downloads[modelID] = .failed("Unknown model")
+            throw ModelDownloadError.invalidResponse
+        }
+
+        let model = ModelCatalog.model(for: modelID)
+        let isQwen = model?.engine == .qwen3asr
+
         downloads[modelID] = .downloading(progress: 0)
 
         do {
             try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
 
-            let files = try await listFiles(for: modelID)
+            let files = try await listFiles(for: modelID, repo: repo)
             guard !files.isEmpty else {
                 downloads[modelID] = .failed("No model files found")
                 throw ModelDownloadError.noFilesFound
@@ -101,7 +116,10 @@ final class ModelDownloader: ObservableObject {
                 try Task.checkCancellation()
 
                 let encodedPath = file.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? file.path
-                guard let fileURL = URL(string: "https://huggingface.co/\(Self.repoID)/resolve/main/\(modelID)/\(encodedPath)") else {
+                // WhisperKit models live under a modelID subdirectory in the shared repo;
+                // qwen3-asr models live at the repo root.
+                let remotePath = isQwen ? encodedPath : "\(modelID)/\(encodedPath)"
+                guard let fileURL = URL(string: "https://huggingface.co/\(repo)/resolve/main/\(remotePath)") else {
                     continue
                 }
 
@@ -166,10 +184,31 @@ final class ModelDownloader: ObservableObject {
         let size: Int64
     }
 
-    func listFiles(for modelID: String, subpath: String = "") async throws -> [RemoteFile] {
-        let fullPath = subpath.isEmpty ? modelID : "\(modelID)/\(subpath)"
-        guard let encoded = fullPath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "https://huggingface.co/api/models/\(Self.repoID)/tree/main/\(encoded)") else {
+    func listFiles(for modelID: String, repo: String? = nil, subpath: String = "") async throws -> [RemoteFile] {
+        let resolvedRepo = repo ?? Self.repoID
+        let model = ModelCatalog.model(for: modelID)
+        let isQwen = model?.engine == .qwen3asr
+
+        // WhisperKit: files under {repo}/tree/main/{modelID}/{subpath}
+        // qwen3-asr: files at {repo}/tree/main/{subpath} (repo root)
+        let treePath: String
+        if isQwen {
+            treePath = subpath
+        } else {
+            treePath = subpath.isEmpty ? modelID : "\(modelID)/\(subpath)"
+        }
+
+        let apiPath: String
+        if treePath.isEmpty {
+            apiPath = "https://huggingface.co/api/models/\(resolvedRepo)/tree/main"
+        } else {
+            guard let encoded = treePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+                throw ModelDownloadError.invalidResponse
+            }
+            apiPath = "https://huggingface.co/api/models/\(resolvedRepo)/tree/main/\(encoded)"
+        }
+
+        guard let url = URL(string: apiPath) else {
             throw ModelDownloadError.invalidResponse
         }
 
@@ -181,6 +220,10 @@ final class ModelDownloader: ObservableObject {
         guard let entries = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             throw ModelDownloadError.invalidResponse
         }
+
+        // For WhisperKit models, strip the modelID prefix from paths.
+        // For qwen3-asr models, paths are already relative to the repo root.
+        let stripPrefix = isQwen ? nil : (modelID + "/")
 
         var files: [RemoteFile] = []
         for entry in entries {
@@ -196,14 +239,22 @@ final class ModelDownloader: ObservableObject {
                 } else {
                     size = 0
                 }
-                let prefix = modelID + "/"
-                let relativePath = rfilename.hasPrefix(prefix) ? String(rfilename.dropFirst(prefix.count)) : rfilename
+                let relativePath: String
+                if let prefix = stripPrefix, rfilename.hasPrefix(prefix) {
+                    relativePath = String(rfilename.dropFirst(prefix.count))
+                } else {
+                    relativePath = rfilename
+                }
                 files.append(RemoteFile(path: relativePath, size: size))
             } else if type == "directory" {
                 guard let path = entry["path"] as? String else { continue }
-                let prefix = modelID + "/"
-                let dirSubpath = path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : path
-                let subFiles = try await listFiles(for: modelID, subpath: dirSubpath)
+                let dirSubpath: String
+                if let prefix = stripPrefix, path.hasPrefix(prefix) {
+                    dirSubpath = String(path.dropFirst(prefix.count))
+                } else {
+                    dirSubpath = path
+                }
+                let subFiles = try await listFiles(for: modelID, repo: resolvedRepo, subpath: dirSubpath)
                 files.append(contentsOf: subFiles)
             }
         }

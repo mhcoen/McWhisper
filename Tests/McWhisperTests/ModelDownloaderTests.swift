@@ -189,6 +189,42 @@ struct ModelDownloaderTests {
         #expect(ModelDownloader.repoID == "argmaxinc/whisperkit-coreml")
     }
 
+    @Test("repoID(for:) returns whisperkit-coreml for WhisperKit models")
+    func repoIDForWhisperKit() {
+        #expect(ModelDownloader.repoID(for: "openai_whisper-base") == "argmaxinc/whisperkit-coreml")
+        #expect(ModelDownloader.repoID(for: "openai_whisper-large-v3") == "argmaxinc/whisperkit-coreml")
+    }
+
+    @Test("repoID(for:) returns per-model HF slug for qwen3-asr models")
+    func repoIDForQwen3() {
+        #expect(ModelDownloader.repoID(for: "qwen3-asr-0.6b") == "aufklarer/Qwen3-ASR-0.6B-MLX-4bit")
+        #expect(ModelDownloader.repoID(for: "qwen3-asr-1.7b") == "aufklarer/Qwen3-ASR-1.7B-MLX-8bit")
+        #expect(ModelDownloader.repoID(for: "parakeet-tdt-v3") == "aufklarer/Parakeet-TDT-v3-CoreML-INT4")
+    }
+
+    @Test("repoID(for:) returns nil for unknown model ID")
+    func repoIDForUnknown() {
+        #expect(ModelDownloader.repoID(for: "nonexistent-model") == nil)
+    }
+
+    @MainActor
+    @Test("downloadModel throws invalidResponse for unknown model ID")
+    func downloadUnknownModelThrows() async {
+        let customDir = FileManager.default.temporaryDirectory.appendingPathComponent("ModelDownloaderTest-\(UUID())")
+        let downloader = ModelDownloader(modelsDirectory: customDir)
+        defer { try? FileManager.default.removeItem(at: customDir) }
+
+        do {
+            try await downloader.downloadModel("nonexistent-model")
+            Issue.record("Expected error")
+        } catch let error as ModelDownloadError {
+            #expect(error == .invalidResponse)
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+        #expect(downloader.state(for: "nonexistent-model") == .failed("Unknown model"))
+    }
+
     // MARK: - Download Progress Delegate
 
     @Test("DownloadProgressDelegate reports progress")
