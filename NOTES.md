@@ -70,6 +70,14 @@ Foundation's `.bySentences` enumeration does not split sentences that start with
 - Fix: call `startRecording()` synchronously in `handleKeyDown()` (no Task wrapper), remove `.receive(on: DispatchQueue.main)` from the subscription (publisher already fires on main).
 - Also removed `PasteManager.targetDescription` (unused after debug print removal) and all debug `print` statements from RecordingCoordinator, AudioEngine, and PasteManager.
 
+### 2026-03-10 — [34] Qwen3ASREngine streaming architecture
+
+- `StreamingASR` from qwen3-asr-swift uses `SileroVADModel` for voice activity detection to segment audio, then transcribes each segment with `Qwen3ASRModel`. Partial results are emitted at `partialResultInterval` (default 1.0s) as non-final `TranscriptionSegment`s. Final segments emit when speech ends.
+- `ParakeetASRModel` has no streaming or callback support — batch inference only. `transcribeStreaming` falls back to batch with a single `onPartial` callback.
+- `ParakeetASRModel.warmUp()` pre-compiles CoreML models on silent input to avoid ~4x cold-start latency on Neural Engine. Called during `loadModel()`.
+- Neither `Qwen3ASRModel` nor `ParakeetASRModel` accept file URLs — only in-memory `[Float]` PCM samples. Audio loading uses `AudioEngine.loadWhisperSamples(from:)`.
+- `SpeechVAD` package dependency was added to `Package.swift` to access `SileroVADModel` for constructing `StreamingASR` instances.
+
 ## Hypotheses
 
 ## Eliminated

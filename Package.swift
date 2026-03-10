@@ -28,6 +28,7 @@ let package = Package(
                 .product(name: "WhisperKit", package: "WhisperKit"),
                 .product(name: "Qwen3ASR", package: "qwen3-asr-swift"),
                 .product(name: "ParakeetASR", package: "qwen3-asr-swift"),
+                .product(name: "SpeechVAD", package: "qwen3-asr-swift"),
             ],
             path: "Sources/McWhisper"
         ),

@@ -1,6 +1,7 @@
 import Foundation
 import Qwen3ASR
 import ParakeetASR
+import SpeechVAD
 
 /// Transcription engine wrapping qwen3-asr-swift for Qwen3-ASR and Parakeet TDT models.
 final class Qwen3ASREngine: ObservableObject, TranscriptionEngine {
@@ -13,6 +14,7 @@ final class Qwen3ASREngine: ObservableObject, TranscriptionEngine {
 
     private var qwen3Model: Qwen3ASRModel?
     private var parakeetModel: ParakeetASRModel?
+    private var streamingASR: StreamingASR?
     private var loadedModelID: String?
 
     var isLoaded: Bool { modelState == .loaded }
@@ -41,11 +43,17 @@ final class Qwen3ASREngine: ObservableObject, TranscriptionEngine {
             switch kind {
             case .qwen3asr:
                 parakeetModel = nil
+                streamingASR = nil
                 let model = try await Qwen3ASRModel.fromPretrained(modelId: hfID)
                 qwen3Model = model
+                // Load VAD model for streaming support
+                let vadModel = try await SileroVADModel.fromPretrained()
+                streamingASR = StreamingASR(asrModel: model, vadModel: vadModel)
             case .parakeet:
                 qwen3Model = nil
+                streamingASR = nil
                 let model = try await ParakeetASRModel.fromPretrained(modelId: hfID)
+                try model.warmUp()
                 parakeetModel = model
             }
             loadedModelID = modelID
@@ -94,25 +102,46 @@ final class Qwen3ASREngine: ObservableObject, TranscriptionEngine {
         language: String?,
         onPartial: @escaping @Sendable (String) -> Void
     ) async throws -> String {
-        // qwen3-asr-swift's basic transcribe is synchronous; no streaming callback.
-        // Run on a background thread and deliver the result as a single partial + final.
         guard isLoaded else { throw TranscriptionError.modelNotLoaded }
 
-        let lang: String? = (language == nil || language == "auto") ? nil : language
-        let text: String
+        // Use StreamingASR with VAD for Qwen3 models (real partial results).
+        if let streaming = streamingASR {
+            let lang: String? = (language == nil || language == "auto") ? nil : language
+            let config = StreamingASRConfig(
+                language: lang,
+                emitPartialResults: true,
+                partialResultInterval: 0.5
+            )
 
-        if let model = qwen3Model {
-            text = model.transcribe(audio: audioSamples, sampleRate: 16000, language: lang)
-        } else if let model = parakeetModel {
-            text = try model.transcribeAudio(audioSamples, sampleRate: 16000, language: lang)
-        } else {
-            throw TranscriptionError.modelNotLoaded
+            let stream = streaming.transcribeStream(
+                audio: audioSamples,
+                sampleRate: 16000,
+                config: config
+            )
+
+            var finalText = ""
+            for try await segment in stream {
+                let partial = segment.text.trimmingCharacters(in: .whitespaces)
+                if !partial.isEmpty {
+                    onPartial(partial)
+                    if segment.isFinal {
+                        if !finalText.isEmpty { finalText += " " }
+                        finalText += partial
+                    }
+                }
+            }
+
+            let trimmed = finalText.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+            // Fall back to batch if streaming yielded no final segments.
         }
 
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { throw TranscriptionError.emptyResult }
-        onPartial(trimmed)
-        return trimmed
+        // Parakeet or fallback: batch transcription with single partial callback.
+        let result = try await transcribe(audioSamples: audioSamples, language: language)
+        onPartial(result)
+        return result
     }
 
     // MARK: - Audio loading
